@@ -17,7 +17,7 @@ import {
   Star, Zap, Crown, Sparkles,
   Moon, Sun, Share2, Clock,
   ChevronUp, TrendingUp, Medal, Users, Hash,
-  ArrowUp, ArrowDown, Minus, RefreshCw, King
+  ArrowUp, ArrowDown, Minus, RefreshCw
 } from 'lucide-react'
 
 /* ─── Types ─── */
@@ -38,6 +38,9 @@ interface ActivityEntry {
   value: number
   createdAt: string
 }
+
+/* ─── Exempt participants (ElRey is GAY and lliga molt, would humiliate everyone) ─── */
+const EXEMPT_IDS = new Set(['elrey'])
 
 /* ─── Confetti ─── */
 function Confetti() {
@@ -161,6 +164,11 @@ export default function Home() {
   const [editValue, setEditValue] = useState<string>('')
   const toastId = useRef(0)
   const prevTopId = useRef<string | null>(null)
+
+  // Image position adjustments (shift image down to show face)
+  const imagePositionOverrides: Record<string, string> = {
+    putraskito: 'center 30%',
+  }
 
   // Fetch data from API
   const fetchData = useCallback(async () => {
@@ -301,13 +309,16 @@ export default function Home() {
   }, [candidates, fetchData, addToast])
 
   const shareSummary = useCallback(() => {
-    const sorted = [...candidates].sort((a, b) => b.lligatCount - a.lligatCount)
-    const lines = sorted.map((c, i) => {
+    const nonExempt = candidates.filter((c) => !EXEMPT_IDS.has(c.id))
+    const shareSorted = [...nonExempt].sort((a, b) => b.lligatCount - a.lligatCount)
+    const lines = shareSorted.map((c, i) => {
       const medal = i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  '
       return `${medal} ${c.name}: ${c.lligatCount}`
     }).join('\n')
-    const total = candidates.reduce((s, c) => s + c.lligatCount, 0)
-    const text = `🔥 CLASSIFICACIÓ LIGUES ESTIU 🔥\n\n${lines}\n\n📊 Total del grup: ${total} lligues\n\nActualitzat: ${new Date().toLocaleString('ca-ES')}`
+    const total = nonExempt.reduce((s, c) => s + c.lligatCount, 0)
+    const exempt = candidates.filter((c) => EXEMPT_IDS.has(c.id))
+    const exemptLine = exempt.length > 0 ? `\n\n🏳️‍🌈 Exempt${exempt.length > 1 ? 's' : ''}: ${exempt.map((c) => c.name).join(', ')} (no participen, lliguen massa)` : ''
+    const text = `🔥 CLASSIFICACIÓ LIGUES ESTIU 🔥\n\n${lines}\n\n📊 Total del grup: ${total} lligues${exemptLine}\n\nActualitzat: ${new Date().toLocaleString('ca-ES')}`
     navigator.clipboard.writeText(text).then(() => {
       addToast('Classificació copiada!', 'success')
     }).catch(() => {
@@ -315,14 +326,22 @@ export default function Home() {
     })
   }, [candidates, addToast])
 
-  // Derived data
-  const sorted = [...candidates].sort((a, b) => b.lligatCount - a.lligatCount || a.order - b.order)
-  const totalLligues = candidates.reduce((s, c) => s + c.lligatCount, 0)
-  const avgLligues = candidates.length > 0 ? (totalLligues / candidates.length).toFixed(1) : '0'
-  const topCandidate = sorted[0]
-  const activeCount = candidates.filter((c) => c.lligatCount > 0).length
+  // Derived data (exempt participants go to bottom of leaderboard, don't compete for rank)
+  const sorted = [...candidates].sort((a, b) => {
+    // Exempt participants always go last
+    const aExempt = EXEMPT_IDS.has(a.id) ? 1 : 0
+    const bExempt = EXEMPT_IDS.has(b.id) ? 1 : 0
+    if (aExempt !== bExempt) return aExempt - bExempt
+    return b.lligatCount - a.lligatCount || a.order - b.order
+  })
+  const totalLligues = candidates.filter((c) => !EXEMPT_IDS.has(c.id)).reduce((s, c) => s + c.lligatCount, 0)
+  const nonExemptCandidates = candidates.filter((c) => !EXEMPT_IDS.has(c.id))
+  const avgLligues = nonExemptCandidates.length > 0 ? (totalLligues / nonExemptCandidates.length).toFixed(1) : '0'
+  const topCandidate = sorted.find((c) => !EXEMPT_IDS.has(c.id))
+  const activeCount = nonExemptCandidates.filter((c) => c.lligatCount > 0).length
 
-  const getRankDisplay = (i: number) => {
+  const getRankDisplay = (i: number, isExempt?: boolean) => {
+    if (isExempt) return '🏳️'
     if (i === 0) return '👑'
     if (i === 1) return '🥈'
     if (i === 2) return '🥉'
@@ -513,6 +532,7 @@ export default function Home() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-2.5">
                     {candidates.map((person, index) => {
                       const rank = sorted.findIndex((s) => s.id === person.id)
+                      const isExempt = EXEMPT_IDS.has(person.id)
                       return (
                         <motion.div
                           key={person.id}
@@ -521,6 +541,7 @@ export default function Home() {
                           transition={{ delay: 0.06 * index, duration: 0.4 }}
                           whileHover={{ scale: 1.03, y: -2 }}
                           className={`relative group rounded-2xl overflow-hidden transition-all duration-300 ${
+                            isExempt ? 'ring-2 ring-purple-400/60 dark:ring-purple-500/40 shadow-md shadow-purple-200/20 dark:shadow-purple-500/10' :
                             rank === 0 && person.lligatCount > 0
                               ? 'ring-2 ring-amber-400 dark:ring-amber-500 shadow-lg shadow-amber-200/40 dark:shadow-amber-500/20'
                               : person.lligatCount > 0
@@ -532,13 +553,22 @@ export default function Home() {
                             <img
                               src={person.photo}
                               alt={person.name}
+                              style={imagePositionOverrides[person.id] ? { objectPosition: imagePositionOverrides[person.id] } : undefined}
                               className={`w-full h-full object-cover transition-all duration-500 ${
+                                EXEMPT_IDS.has(person.id) ? 'brightness-75 grayscale-[30%]' :
                                 rank === 0 && person.lligatCount > 0 ? 'brightness-110 saturate-150' : person.lligatCount > 0 ? 'brightness-105 saturate-120' : 'brightness-90'
                               }`}
                             />
 
+                            {/* Exempt badge */}
+                            {EXEMPT_IDS.has(person.id) && (
+                              <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold shadow-lg bg-purple-500/90 text-white flex items-center gap-0.5">
+                                🏳️‍🌈 EXEMPT
+                              </div>
+                            )}
+
                             {/* Rank badge */}
-                            {person.lligatCount > 0 && (
+                            {person.lligatCount > 0 && !EXEMPT_IDS.has(person.id) && (
                               <div className={`absolute top-1.5 left-1.5 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-lg ${
                                 rank === 0 ? 'bg-amber-400 text-amber-900' : rank === 1 ? 'bg-gray-300 text-gray-700' : rank === 2 ? 'bg-orange-400 text-orange-900' : 'bg-black/50 text-white'
                               }`}>
@@ -563,10 +593,16 @@ export default function Home() {
 
                             {/* Bottom overlay with name + counter */}
                             <div className="absolute bottom-0 left-0 right-0 p-1.5 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
-                              <p className="text-xs sm:text-sm font-bold text-white truncate">
+                              <p className="text-xs sm:text-sm font-bold text-white truncate flex items-center gap-1">
                                 {person.name}
+                                {EXEMPT_IDS.has(person.id) && <span className="text-[8px] text-purple-300 font-normal">(exempt)</span>}
                               </p>
                               {/* Inline counter buttons */}
+                              {EXEMPT_IDS.has(person.id) ? (
+                                <div className="flex items-center justify-center mt-1">
+                                  <span className="text-[10px] text-purple-300/80 italic">🏳️‍🌈 No participa (liga massa)</span>
+                                </div>
+                              ) : (
                               <div className="flex items-center gap-1 mt-1">
                                 <button
                                   onClick={(e) => { e.stopPropagation(); decrement(person.id) }}
@@ -591,6 +627,7 @@ export default function Home() {
                                   +
                                 </button>
                               </div>
+                              )}
                             </div>
 
                             {/* Crown for #1 */}
@@ -629,7 +666,7 @@ export default function Home() {
                   </div>
                   <Separator className="mb-3 bg-orange-100 dark:bg-gray-700" />
 
-                  {sorted.every((c) => c.lligatCount === 0) ? (
+                  {sorted.filter((c) => !EXEMPT_IDS.has(c.id)).every((c) => c.lligatCount === 0) ? (
                     <div className="text-center py-8">
                       <motion.div animate={{ y: [0, -5, 0] }} transition={{ duration: 2, repeat: Infinity }}>
                         <Sparkles className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
@@ -640,7 +677,8 @@ export default function Home() {
                   ) : (
                     <div className="space-y-2 max-h-[560px] overflow-y-auto custom-scrollbar">
                       {sorted.map((person, index) => {
-                        const maxCount = sorted[0]?.lligatCount || 1
+                        const nonExemptSorted = sorted.filter((c) => !EXEMPT_IDS.has(c.id))
+                        const maxCount = nonExemptSorted[0]?.lligatCount || 1
                         const barWidth = maxCount > 0 ? (person.lligatCount / maxCount) * 100 : 0
                         return (
                           <motion.div
@@ -650,7 +688,9 @@ export default function Home() {
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: 0.03 * index }}
                             className={`relative flex items-center gap-2.5 p-2.5 rounded-xl transition-all duration-500 ${
-                              index === 0
+                              EXEMPT_IDS.has(person.id)
+                                ? 'bg-purple-50/60 dark:bg-purple-900/15 border border-purple-200/40 dark:border-purple-800/30'
+                                : index === 0
                                 ? 'bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/50 dark:border-amber-800/50'
                                 : index === 1
                                 ? 'bg-gray-50/80 dark:bg-gray-800/30 border border-gray-200/50 dark:border-gray-700/50'
@@ -660,23 +700,27 @@ export default function Home() {
                             }`}
                           >
                             {/* Rank */}
-                            <span className="text-lg w-8 text-center flex-shrink-0">{getRankDisplay(index)}</span>
+                            <span className="text-lg w-8 text-center flex-shrink-0">{getRankDisplay(index, EXEMPT_IDS.has(person.id))}</span>
 
                             {/* Photo */}
                             <div className={`relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ${
                               index === 0 ? 'ring-2 ring-amber-400' : 'ring-1 ring-gray-200 dark:ring-gray-700'
                             }`}>
-                              <img src={person.photo} alt={person.name} className="w-full h-full object-cover" />
+                              <img src={person.photo} alt={person.name}
+                                style={imagePositionOverrides[person.id] ? { objectPosition: imagePositionOverrides[person.id] } : undefined}
+                                className={`w-full h-full object-cover ${EXEMPT_IDS.has(person.id) ? 'grayscale-[30%] opacity-70' : ''}`}
+                              />
                             </div>
 
                             {/* Name + bar */}
                             <div className="flex-1 min-w-0">
                               <div className="flex items-baseline gap-1.5">
-                                <p className="text-sm font-bold text-gray-700 dark:text-gray-300 truncate">{person.name}</p>
+                                <p className={`text-sm font-bold truncate ${EXEMPT_IDS.has(person.id) ? 'text-purple-500 dark:text-purple-400' : 'text-gray-700 dark:text-gray-300'}`}>{person.name}</p>
                                 <p className="text-[10px] text-gray-400 dark:text-gray-500">{person.nickname}</p>
+                                {EXEMPT_IDS.has(person.id) && <span className="text-[9px] text-purple-400 dark:text-purple-500 font-medium">🏳️‍🌈 EXEMPT</span>}
                               </div>
                               {/* Progress bar */}
-                              {person.lligatCount > 0 && (
+                              {person.lligatCount > 0 && !EXEMPT_IDS.has(person.id) && (
                                 <div className="mt-1 h-1.5 w-full bg-gray-200/60 dark:bg-gray-700/40 rounded-full overflow-hidden">
                                   <motion.div
                                     className="h-full rounded-full bg-gradient-to-r from-orange-400 to-rose-400"
@@ -689,6 +733,9 @@ export default function Home() {
                             </div>
 
                             {/* Count + buttons */}
+                            {EXEMPT_IDS.has(person.id) ? (
+                              <span className="text-[10px] text-purple-400 dark:text-purple-500 italic flex-shrink-0">No participa</span>
+                            ) : (
                             <div className="flex items-center gap-1 flex-shrink-0">
                               <button
                                 onClick={() => decrement(person.id)}
@@ -715,6 +762,7 @@ export default function Home() {
                                 +
                               </button>
                             </div>
+                            )}
                           </motion.div>
                         )
                       })}
@@ -871,11 +919,19 @@ export default function Home() {
                   </h3>
                   <div className="space-y-1.5 text-[11px] text-gray-500 dark:text-gray-400">
                     <p>+ Suma <strong>+1</strong> cada vegada que lliguis</p>
-                    <p>− Resta si t\'has equivocat</p>
+                    <p>− Resta si t&apos;has equivocat</p>
                     <p>🏆 El qui tingui més va primer</p>
                     <p>📊 Es guarda automàticament</p>
-                    <p>🔄 S\'actualitza cada 10 segons</p>
+                    <p>🔄 S&apos;actualitza cada 10 segons</p>
                     <p>📋 Comparteix la classificació!</p>
+                    <div className="mt-2 pt-2 border-t border-purple-200/50 dark:border-purple-800/30">
+                      <p className="text-purple-600 dark:text-purple-400 font-bold flex items-center gap-1">
+                        🏳️‍🌈 Regla especial: ElRey
+                      </p>
+                      <p className="text-purple-500/80 dark:text-purple-400/70 mt-0.5">
+                        ElRey queda <strong>exempt</strong> del joc. És GAY i lliga massa, ens humiliaria a la resta. 🫡
+                      </p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

@@ -11,6 +11,7 @@ const INITIAL_CANDIDATES = [
   { id: 'debig', name: 'Debig', nickname: 'El Gran', photo: '/photos/debig.png', order: 7 },
   { id: 'baldo', name: 'Baldo', nickname: 'El Valent', photo: '/photos/baldo.png', order: 8 },
   { id: 'roki', name: 'Roki', nickname: 'El Roca', photo: '/photos/roki.png', order: 9 },
+  { id: 'elrey', name: 'ElRey', nickname: 'El Exempt', photo: '/photos/elrey.png', order: 10 },
 ]
 
 export async function GET() {
