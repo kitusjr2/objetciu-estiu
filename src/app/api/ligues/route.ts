@@ -30,3 +30,20 @@ export async function POST(request: NextRequest) {
 
   return Response.json(ligue, { status: 201 })
 }
+
+export async function DELETE(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+  const id = searchParams.get('id')
+
+  if (!id) {
+    return Response.json({ error: 'id is required' }, { status: 400 })
+  }
+
+  const ligue = await db.ligue.findUnique({ where: { id } })
+  if (!ligue) {
+    return Response.json({ error: 'Ligue not found' }, { status: 404 })
+  }
+
+  await db.ligue.delete({ where: { id } })
+  return Response.json({ success: true })
+}

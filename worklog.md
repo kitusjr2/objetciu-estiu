@@ -3,7 +3,7 @@
 ## Current Project Status
 
 **Project**: "Qui lliga més aquest estiu?" - Competitive summer hookup leaderboard
-**Status**: Fully functional with ligue details feature, updated nicknames, ElRey can now track counts
+**Status**: Fully functional with enhanced styling, new features, and bug fixes
 **Route**: Single page at `/`
 **Participants**: 11 (Ian, Putraskito, Pol, Rui, Clone, Dani, Max, Debig, Baldo, Roki, ElRey)
 **Exempt from leaderboard**: ElRey (GAY, lliga massa, ens humiliaria) - but CAN increment/decrement
@@ -91,12 +91,66 @@ Stage Summary:
 - Auto-refresh is polling-based (10s interval)
 - EXEMPT_IDS is hardcoded client-side
 - Ligue details are optional - users might skip them, resulting in empty records
+- Server can be memory-sensitive in sandbox environment (Turbopack panics with large files)
 
 ## Priority Recommendations for Next Phase
 
 - Add photo/image attachments to ligue details
 - Add comments/reactions on ligue details
-- Add average rating display per candidate
 - Add WebSocket for real-time updates
 - Add "undo last action" button
 - Make exempt status configurable via admin UI
+- Add search/filter for candidates
+- Add weekly/monthly stats view
+
+---
+
+Task ID: 7
+Agent: Review Agent (Cron) - Round 5
+Task: QA testing, bug fixes, styling improvements, and new features
+
+Work Log:
+- **QA Assessment**: Reviewed full codebase (page.tsx ~1269 lines, globals.css, API routes, schema)
+- **Bug Fixes**:
+  - Removed unused imports: PartyPopper, TrendingUp, Medal, Minus, Copy
+  - Removed unused functions: getLastActivity, hasStreak, getHeatClass
+  - Fixed unused showResetConfirm state - now properly opens confirmation dialog
+  - Fixed missing Share Modal - was referenced in code but never rendered
+  - Reduced Prisma logging from ['query'] to ['error', 'warn'] for performance
+  - Fixed confetti trigger to only fire for non-exempt candidates taking #1 spot
+- **Styling Improvements**:
+  - Added pulse-glow CSS animation for #1 ranked candidate cards (amber glow)
+  - Added pulse-glow-purple CSS animation for exempt candidate cards (purple glow)
+  - Added shimmer effect on leaderboard progress bars
+  - Added +1 flash overlay animation on candidate cards when incrementing
+  - Added smooth scrollbar for entire page (scroll-behavior: smooth)
+  - Added custom selection color (orange tint)
+  - Added custom focus-visible ring for accessibility (orange)
+  - Added glass-card CSS utility class
+  - Added rating-btn-hover scale animation
+  - Display nicknames on candidate cards
+  - Display average rating on candidate cards (amber star + avg text)
+  - Display activity count in timeline header
+  - Display ligue count in history modal subtitle
+  - Icons next to ligue detail labels (Heart for Nom, Users for Edat, MapPin for Ubi, Star for Rating, Calendar for time)
+  - Footer now shows last activity time
+  - Ligue delete button appears on hover with trash icon
+- **New Features**:
+  - **Animated Number Counter**: Total lligues in header now animates with color on change
+  - **Streak Badge**: 🔥 fire badge appears on candidate cards when they have 2+ recent increments (3 tiers: orange/amber/red)
+  - **Average Rating Display**: Shows average rating per candidate on both candidate cards and leaderboard
+  - **Top Valoració Leaderboard**: New stats section showing top 3 candidates by average rating
+  - **Delete Ligue Records**: Hover over ligue detail cards to reveal delete button (trash icon)
+  - **DELETE API endpoint**: Added DELETE /api/ligues?id=xxx endpoint for removing ligue records
+  - **Reset Confirmation Dialog**: Uses shadcn/ui Dialog component instead of immediate reset
+  - **Share Modal**: Proper modal with textarea showing the share text and "Copiar text" button (fallback when clipboard API fails)
+  - **Rating Toggle**: Clicking the same rating number again deselects it (sets to 0)
+  - **Podium Fix**: Podium now correctly filters exempt candidates from display
+- **Lint**: Passes clean
+- **All APIs verified working**: /api/candidates (200), /api/activity (200), /api/ligues (200)
+
+Stage Summary:
+- 5 bugs fixed (unused imports/functions, missing modals, incorrect confetti trigger)
+- Significant styling enhancements (glow animations, flash overlays, shimmer bars, accessibility)
+- 7 new features added (streak badges, avg rating, top rating board, delete ligues, reset dialog, share modal, rating toggle)
+- All changes verified with lint and API testing

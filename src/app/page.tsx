@@ -11,13 +11,21 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Flame, Trophy, PartyPopper, Heart, RotateCcw,
+  Flame, Trophy, Heart, RotateCcw,
   Star, Zap, Crown, Sparkles,
   Moon, Sun, Share2, Clock,
-  ChevronUp, TrendingUp, Medal, Users, Hash,
-  ArrowUp, ArrowDown, Minus, RefreshCw, Copy, X
+  ChevronUp, Users, Hash,
+  ArrowUp, ArrowDown, RefreshCw, X, Trash2, TrendingUp, MapPin, Calendar, Award
 } from 'lucide-react'
 
 /* ─── Types ─── */
@@ -39,6 +47,17 @@ interface ActivityEntry {
   createdAt: string
 }
 
+interface LigueEntry {
+  id: string
+  personId: string
+  personName: string
+  nom: string
+  edat: string
+  ubi: string
+  rating: number
+  createdAt: string
+}
+
 /* ─── Exempt participants (ElRey is GAY and lliga molt, would humiliate everyone) ─── */
 const EXEMPT_IDS = new Set(['elrey'])
 
@@ -47,7 +66,7 @@ function Confetti() {
   const colors = ['#f97316', '#ef4444', '#ec4899', '#eab308', '#22c55e', '#8b5cf6', '#06b6d4']
   return (
     <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
-      {Array.from({ length: 100 }).map((_, i) => {
+      {Array.from({ length: 80 }).map((_, i) => {
         const color = colors[i % colors.length]
         const left = Math.random() * 100
         const delay = Math.random() * 2
@@ -148,6 +167,40 @@ function timeAgo(dateStr: string): string {
   return `fa ${days}d`
 }
 
+/* ─── Animated Number Counter ─── */
+function AnimatedNumber({ value }: { value: number }) {
+  return (
+    <motion.span
+      key={value}
+      initial={{ scale: 1.4, color: '#22c55e' }}
+      animate={{ scale: 1, color: 'inherit' }}
+      transition={{ duration: 0.3 }}
+    >
+      {value}
+    </motion.span>
+  )
+}
+
+/* ─── Streak Badge ─── */
+function StreakBadge({ count }: { count: number }) {
+  if (count < 2) return null
+  return (
+    <motion.div
+      initial={{ scale: 0, rotate: -180 }}
+      animate={{ scale: 1, rotate: 0 }}
+      className="absolute -top-1 -right-1 z-10"
+    >
+      <div className={`flex items-center justify-center rounded-full text-[8px] font-black shadow-lg ${
+        count >= 5 ? 'w-6 h-6 bg-gradient-to-br from-red-500 to-orange-600 text-white' :
+        count >= 3 ? 'w-5 h-5 bg-gradient-to-br from-amber-400 to-orange-500 text-white' :
+        'w-5 h-5 bg-gradient-to-br from-orange-400 to-amber-500 text-white'
+      }`}>
+        🔥
+      </div>
+    </motion.div>
+  )
+}
+
 /* ─── Main Component ─── */
 export default function Home() {
   const [candidates, setCandidates] = useState<Candidate[]>([])
@@ -171,8 +224,10 @@ export default function Home() {
   const [ligueEdat, setLigueEdat] = useState('')
   const [ligueUbi, setLigueUbi] = useState('')
   const [ligueRating, setLigueRating] = useState(0)
-  const [ligues, setLigues] = useState<{id:string;personId:string;personName:string;nom:string;edat:string;ubi:string;rating:number;createdAt:string}[]>([])
+  const [ligues, setLigues] = useState<LigueEntry[]>([])
   const [showLigueHistory, setShowLigueHistory] = useState<string | null>(null)
+  // New: recently incremented tracker for animation
+  const [recentlyIncremented, setRecentlyIncremented] = useState<Set<string>>(new Set())
   const toastId = useRef(0)
   const prevTopId = useRef<string | null>(null)
 
@@ -217,13 +272,12 @@ export default function Home() {
 
   // Confetti when someone takes the #1 spot
   useEffect(() => {
-    const sorted = [...candidates].sort((a, b) => b.lligatCount - a.lligatCount)
-    if (sorted.length > 0 && sorted[0].lligatCount > 0) {
-      const newTopId = sorted[0].id
-      if (prevTopId.current !== null && prevTopId.current !== newTopId && sorted[0].lligatCount > 0) {
-        // New person took #1!
+    const nonExemptSorted = [...candidates].filter((c) => !EXEMPT_IDS.has(c.id)).sort((a, b) => b.lligatCount - a.lligatCount)
+    if (nonExemptSorted.length > 0 && nonExemptSorted[0].lligatCount > 0) {
+      const newTopId = nonExemptSorted[0].id
+      if (prevTopId.current !== null && prevTopId.current !== newTopId) {
         triggerConfetti()
-        addToast(`${sorted[0].name} és el nou líder! 👑`, 'warning')
+        addToast(`${nonExemptSorted[0].name} és el nou líder! 👑`, 'warning')
       }
       prevTopId.current = newTopId
     }
@@ -242,7 +296,6 @@ export default function Home() {
 
   const updateCount = useCallback(async (id: string, newCount: number) => {
     if (newCount < 0) newCount = 0
-    // Optimistic update
     setCandidates((prev) => prev.map((c) => c.id === id ? { ...c, lligatCount: newCount } : c))
 
     try {
@@ -251,12 +304,11 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lligatCount: newCount }),
       })
-      // Refresh activity
       const actRes = await fetch('/api/activity')
       setActivity(await actRes.json())
     } catch {
       addToast('Error guardant', 'info')
-      fetchData() // rollback
+      fetchData()
     }
   }, [fetchData, addToast])
 
@@ -265,7 +317,6 @@ export default function Home() {
       const c = prev.find((c) => c.id === id)
       if (!c) return prev
       const newCount = c.lligatCount + 1
-      // Fire and forget API update
       fetch(`/api/candidates/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -274,12 +325,20 @@ export default function Home() {
         fetch('/api/activity').then(r => r.json()).then(setActivity)
       })
       addToast(`${c.name} +1! 💪`, 'success')
-      // Open ligue detail form for this person
       setShowLigueForm(id)
       setLigueNom('')
       setLigueEdat('')
       setLigueUbi('')
       setLigueRating(0)
+      // Mark recently incremented for animation
+      setRecentlyIncremented((prev) => new Set(prev).add(id))
+      setTimeout(() => {
+        setRecentlyIncremented((prev) => {
+          const next = new Set(prev)
+          next.delete(id)
+          return next
+        })
+      }, 1500)
       return prev.map((p) => p.id === id ? { ...p, lligatCount: newCount } : p)
     })
   }, [addToast])
@@ -313,7 +372,6 @@ export default function Home() {
 
   const resetAll = useCallback(async () => {
     setShowResetConfirm(false)
-    // Optimistic
     setCandidates((prev) => prev.map((c) => ({ ...c, lligatCount: 0 })))
     try {
       await Promise.all(candidates.map((c) =>
@@ -335,7 +393,8 @@ export default function Home() {
     const shareSorted = [...nonExempt].sort((a, b) => b.lligatCount - a.lligatCount)
     const lines = shareSorted.map((c, i) => {
       const medal = i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  '
-      return `${medal} ${c.name}: ${c.lligatCount}`
+      const nick = c.nickname ? ` (${c.nickname})` : ''
+      return `${medal} ${c.name}${nick}: ${c.lligatCount}`
     }).join('\n')
     const total = nonExempt.reduce((s, c) => s + c.lligatCount, 0)
     const exempt = candidates.filter((c) => EXEMPT_IDS.has(c.id))
@@ -367,7 +426,6 @@ export default function Home() {
           rating: ligueRating,
         }),
       })
-      // Refresh ligues
       const ligRes = await fetch('/api/ligues')
       setLigues(await ligRes.json())
       addToast('Detalls guardats! 📝', 'success')
@@ -390,9 +448,20 @@ export default function Home() {
     setLigueRating(0)
   }, [])
 
+  // Delete ligue record
+  const deleteLigue = useCallback(async (ligueId: string) => {
+    try {
+      await fetch(`/api/ligues?id=${ligueId}`, { method: 'DELETE' })
+      const ligRes = await fetch('/api/ligues')
+      setLigues(await ligRes.json())
+      addToast('Lligada eliminada', 'info')
+    } catch {
+      addToast('Error eliminant', 'info')
+    }
+  }, [addToast])
+
   // Derived data (exempt participants go to bottom of leaderboard, don't compete for rank)
   const sorted = [...candidates].sort((a, b) => {
-    // Exempt participants always go last
     const aExempt = EXEMPT_IDS.has(a.id) ? 1 : 0
     const bExempt = EXEMPT_IDS.has(b.id) ? 1 : 0
     if (aExempt !== bExempt) return aExempt - bExempt
@@ -404,33 +473,27 @@ export default function Home() {
   const topCandidate = sorted.find((c) => !EXEMPT_IDS.has(c.id))
   const activeCount = nonExemptCandidates.filter((c) => c.lligatCount > 0).length
 
+  // Average rating per candidate
+  const getAvgRating = (personId: string): number => {
+    const personLigues = ligues.filter((l) => l.personId === personId && l.rating > 0)
+    if (personLigues.length === 0) return 0
+    return personLigues.reduce((sum, l) => sum + l.rating, 0) / personLigues.length
+  }
+
+  // Streak count for a candidate
+  const getStreakCount = (personId: string): number => {
+    const recentActivity = activity
+      .filter((a) => a.personId === personId)
+      .slice(0, 5)
+    return recentActivity.filter((a) => a.action === 'increment').length
+  }
+
   const getRankDisplay = (i: number, isExempt?: boolean) => {
     if (isExempt) return '🏳️'
     if (i === 0) return '👑'
     if (i === 1) return '🥈'
     if (i === 2) return '🥉'
     return `${i + 1}`
-  }
-
-  // Get last activity for a candidate
-  const getLastActivity = (personId: string): ActivityEntry | null => {
-    return activity.find((a) => a.personId === personId) || null
-  }
-
-  // Check if candidate has a streak (2+ increments in last 5 activities)
-  const hasStreak = (personId: string): boolean => {
-    const recentActivity = activity
-      .filter((a) => a.personId === personId)
-      .slice(0, 5)
-    const incrementCount = recentActivity.filter((a) => a.action === 'increment').length
-    return incrementCount >= 2
-  }
-
-  // Heat level for candidate cards
-  const getHeatClass = (count: number): string => {
-    if (count >= 5) return 'ring-rose-500 shadow-rose-400/50'
-    if (count >= 3) return 'ring-amber-500 shadow-amber-400/50'
-    return ''
   }
 
   // Last activity time for footer
@@ -502,7 +565,7 @@ export default function Home() {
                 darkMode ? 'bg-gray-800/70 border-gray-700' : 'bg-white/70 border-orange-100'
               }`}>
                 <Trophy className="w-5 h-5 text-amber-500" />
-                <span className="text-lg font-bold text-gray-800 dark:text-gray-200">{totalLligues}</span>
+                <AnimatedNumber value={totalLligues} />
                 <span className="text-sm text-gray-500 dark:text-gray-400">lligues totals</span>
               </div>
 
@@ -543,7 +606,7 @@ export default function Home() {
 
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="outline" size="sm" onClick={resetAll}
+                    <Button variant="outline" size="sm" onClick={() => setShowResetConfirm(true)}
                       className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border-orange-200 dark:border-gray-700 hover:bg-red-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 gap-1">
                       <RotateCcw className="w-3.5 h-3.5" />
                     </Button>
@@ -570,13 +633,14 @@ export default function Home() {
                   <div className="flex items-center gap-2 mb-2">
                     <Clock className="w-4 h-4 text-cyan-500" />
                     <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">Activitat Recent</h3>
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500">{activity.length} activitats</span>
                     <Button variant="ghost" size="sm" onClick={() => setShowTimeline(false)} className="ml-auto h-6 w-6 p-0">
                       <ChevronUp className="w-3.5 h-3.5" />
                     </Button>
                   </div>
                   <div className="max-h-36 overflow-y-auto custom-scrollbar space-y-1">
-                    {activity.slice(0, 20).map((entry) => (
-                      <div key={entry.id} className={`flex items-center gap-2 text-xs py-1 px-2 rounded-lg ${
+                    {activity.slice(0, 30).map((entry) => (
+                      <div key={entry.id} className={`flex items-center gap-2 text-xs py-1 px-2 rounded-lg transition-colors ${
                         entry.action === 'increment'
                           ? 'bg-green-50/60 dark:bg-green-900/15 text-green-700 dark:text-green-400'
                           : 'bg-red-50/60 dark:bg-red-900/15 text-red-600 dark:text-red-400'
@@ -621,6 +685,9 @@ export default function Home() {
                     {candidates.map((person, index) => {
                       const rank = sorted.findIndex((s) => s.id === person.id)
                       const isExempt = EXEMPT_IDS.has(person.id)
+                      const streak = getStreakCount(person.id)
+                      const avgRating = getAvgRating(person.id)
+                      const justIncremented = recentlyIncremented.has(person.id)
                       return (
                         <motion.div
                           key={person.id}
@@ -629,9 +696,9 @@ export default function Home() {
                           transition={{ delay: 0.06 * index, duration: 0.4 }}
                           whileHover={{ scale: 1.03, y: -2 }}
                           className={`relative group rounded-2xl overflow-hidden transition-all duration-300 ${
-                            isExempt ? 'ring-2 ring-purple-400/60 dark:ring-purple-500/40 shadow-md shadow-purple-200/20 dark:shadow-purple-500/10' :
+                            isExempt ? 'ring-2 ring-purple-400/60 dark:ring-purple-500/40 shadow-md shadow-purple-200/20 dark:shadow-purple-500/10 pulse-glow-purple' :
                             rank === 0 && person.lligatCount > 0
-                              ? 'ring-2 ring-amber-400 dark:ring-amber-500 shadow-lg shadow-amber-200/40 dark:shadow-amber-500/20'
+                              ? 'ring-2 ring-amber-400 dark:ring-amber-500 shadow-lg shadow-amber-200/40 dark:shadow-amber-500/20 pulse-glow-amber'
                               : person.lligatCount > 0
                               ? 'ring-2 ring-green-400/60 dark:ring-green-500/40 shadow-md'
                               : 'ring-1 ring-gray-200/80 dark:ring-gray-700/80'
@@ -643,20 +710,35 @@ export default function Home() {
                               alt={person.name}
                               style={imagePositionOverrides[person.id] ? { objectPosition: imagePositionOverrides[person.id] } : undefined}
                               className={`w-full h-full object-cover transition-all duration-500 ${
-                                EXEMPT_IDS.has(person.id) ? 'brightness-75 grayscale-[30%]' :
+                                isExempt ? 'brightness-75 grayscale-[30%]' :
                                 rank === 0 && person.lligatCount > 0 ? 'brightness-110 saturate-150' : person.lligatCount > 0 ? 'brightness-105 saturate-120' : 'brightness-90'
                               }`}
                             />
 
+                            {/* +1 Flash overlay */}
+                            <AnimatePresence>
+                              {justIncremented && (
+                                <motion.div
+                                  initial={{ opacity: 0.8, scale: 0.5 }}
+                                  animate={{ opacity: 0, scale: 2, y: -40 }}
+                                  exit={{ opacity: 0 }}
+                                  transition={{ duration: 1 }}
+                                  className="absolute inset-0 flex items-center justify-center pointer-events-none z-20"
+                                >
+                                  <span className="text-3xl font-black text-green-400 drop-shadow-lg">+1</span>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+
                             {/* Exempt badge */}
-                            {EXEMPT_IDS.has(person.id) && (
+                            {isExempt && (
                               <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold shadow-lg bg-purple-500/90 text-white flex items-center gap-0.5">
                                 🏳️‍🌈 EXEMPT
                               </div>
                             )}
 
                             {/* Rank badge */}
-                            {person.lligatCount > 0 && !EXEMPT_IDS.has(person.id) && (
+                            {person.lligatCount > 0 && !isExempt && (
                               <div className={`absolute top-1.5 left-1.5 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-lg ${
                                 rank === 0 ? 'bg-amber-400 text-amber-900' : rank === 1 ? 'bg-gray-300 text-gray-700' : rank === 2 ? 'bg-orange-400 text-orange-900' : 'bg-black/50 text-white'
                               }`}>
@@ -666,6 +748,7 @@ export default function Home() {
 
                             {/* Count display */}
                             <div className="absolute top-1.5 right-1.5">
+                              <StreakBadge count={streak} />
                               <motion.div
                                 key={person.lligatCount}
                                 initial={{ scale: 1.4 }}
@@ -683,9 +766,17 @@ export default function Home() {
                             <div className="absolute bottom-0 left-0 right-0 p-1.5 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
                               <p className="text-xs sm:text-sm font-bold text-white truncate flex items-center gap-1">
                                 {person.name}
-                                {EXEMPT_IDS.has(person.id) && <span className="text-[8px] text-purple-300 font-normal">(exempt)</span>}
+                                {isExempt && <span className="text-[8px] text-purple-300 font-normal">(exempt)</span>}
                               </p>
-                              {/* Inline counter buttons - everyone can increment/decrement */}
+                              {/* Nickname display */}
+                              <p className="text-[9px] text-white/60 truncate">{person.nickname}</p>
+                              {/* Avg rating display */}
+                              {avgRating > 0 && (
+                                <p className="text-[8px] text-amber-300/80 flex items-center gap-0.5 mt-0.5">
+                                  <Star className="w-2.5 h-2.5" /> {avgRating.toFixed(1)} avg
+                                </p>
+                              )}
+                              {/* Inline counter buttons */}
                               <div className="flex items-center gap-1 mt-1">
                                 <button
                                   onClick={(e) => { e.stopPropagation(); decrement(person.id) }}
@@ -714,7 +805,7 @@ export default function Home() {
 
                             {/* Crown for #1 */}
                             <AnimatePresence>
-                              {rank === 0 && person.lligatCount > 0 && (
+                              {rank === 0 && person.lligatCount > 0 && !isExempt && (
                                 <motion.div
                                   initial={{ y: -20, opacity: 0 }}
                                   animate={{ y: 0, opacity: 1 }}
@@ -762,6 +853,8 @@ export default function Home() {
                         const nonExemptSorted = sorted.filter((c) => !EXEMPT_IDS.has(c.id))
                         const maxCount = nonExemptSorted[0]?.lligatCount || 1
                         const barWidth = maxCount > 0 ? (person.lligatCount / maxCount) * 100 : 0
+                        const avgRating = getAvgRating(person.id)
+                        const personLigues = ligues.filter((l) => l.personId === person.id)
                         return (
                           <motion.div
                             key={person.id}
@@ -786,7 +879,7 @@ export default function Home() {
 
                             {/* Photo */}
                             <div className={`relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ${
-                              index === 0 ? 'ring-2 ring-amber-400' : 'ring-1 ring-gray-200 dark:ring-gray-700'
+                              index === 0 && !EXEMPT_IDS.has(person.id) ? 'ring-2 ring-amber-400' : 'ring-1 ring-gray-200 dark:ring-gray-700'
                             }`}>
                               <img src={person.photo} alt={person.name}
                                 style={imagePositionOverrides[person.id] ? { objectPosition: imagePositionOverrides[person.id] } : undefined}
@@ -801,24 +894,34 @@ export default function Home() {
                                 <p className="text-[10px] text-gray-400 dark:text-gray-500">{person.nickname}</p>
                                 {EXEMPT_IDS.has(person.id) && <span className="text-[9px] text-purple-400 dark:text-purple-500 font-medium">🏳️‍🌈 EXEMPT</span>}
                               </div>
-                              {/* Ligue history link */}
-                              {ligues.filter((l) => l.personId === person.id).length > 0 && (
-                                <button
-                                  onClick={() => setShowLigueHistory(person.id)}
-                                  className="text-[9px] text-orange-500 dark:text-orange-400 hover:underline mt-0.5 flex items-center gap-0.5"
-                                >
-                                  📖 {ligues.filter((l) => l.personId === person.id).length} lligada{ligues.filter((l) => l.personId === person.id).length !== 1 ? 's' : ''} amb detalls
-                                </button>
-                              )}
+                              {/* Ligue history link + avg rating */}
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {personLigues.length > 0 && (
+                                  <button
+                                    onClick={() => setShowLigueHistory(person.id)}
+                                    className="text-[9px] text-orange-500 dark:text-orange-400 hover:underline flex items-center gap-0.5"
+                                  >
+                                    📖 {personLigues.length} lligada{personLigues.length !== 1 ? 's' : ''}
+                                  </button>
+                                )}
+                                {avgRating > 0 && (
+                                  <span className="text-[9px] text-amber-500 dark:text-amber-400 flex items-center gap-0.5">
+                                    <Star className="w-2.5 h-2.5" /> {avgRating.toFixed(1)}
+                                  </span>
+                                )}
+                              </div>
                               {/* Progress bar */}
                               {person.lligatCount > 0 && !EXEMPT_IDS.has(person.id) && (
                                 <div className="mt-1 h-1.5 w-full bg-gray-200/60 dark:bg-gray-700/40 rounded-full overflow-hidden">
                                   <motion.div
-                                    className="h-full rounded-full bg-gradient-to-r from-orange-400 to-rose-400"
+                                    className="h-full rounded-full bg-gradient-to-r from-orange-400 to-rose-400 relative"
                                     initial={{ width: 0 }}
                                     animate={{ width: `${barWidth}%` }}
                                     transition={{ duration: 0.6, ease: 'easeOut' }}
-                                  />
+                                  >
+                                    {/* Shimmer effect on bar */}
+                                    <div className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+                                  </motion.div>
                                 </div>
                               )}
                             </div>
@@ -906,7 +1009,7 @@ export default function Home() {
 
                   <div className="grid grid-cols-2 gap-2.5">
                     <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/10 rounded-xl p-2.5 text-center border border-orange-100/50 dark:border-orange-800/30">
-                      <p className="text-2xl font-extrabold text-orange-600 dark:text-orange-400">{totalLligues}</p>
+                      <p className="text-2xl font-extrabold text-orange-600 dark:text-orange-400"><AnimatedNumber value={totalLligues} /></p>
                       <p className="text-[10px] text-gray-500 dark:text-gray-400">Total lligues</p>
                     </div>
                     <div className="bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-900/20 dark:to-pink-900/10 rounded-xl p-2.5 text-center border border-rose-100/50 dark:border-rose-800/30">
@@ -925,54 +1028,92 @@ export default function Home() {
                     </div>
                   </div>
 
+                  {/* Rating leaderboard */}
+                  {ligues.length > 0 && (
+                    <div className="mt-3">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <Award className="w-3.5 h-3.5 text-amber-500" />
+                        <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400">Top Valoració</p>
+                      </div>
+                      <div className="space-y-1">
+                        {candidates
+                          .filter((c) => getAvgRating(c.id) > 0)
+                          .sort((a, b) => getAvgRating(b.id) - getAvgRating(a.id))
+                          .slice(0, 3)
+                          .map((c, i) => {
+                            const avg = getAvgRating(c.id)
+                            return (
+                              <div key={c.id} className="flex items-center gap-2 text-[10px] px-2 py-1 rounded-lg bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100/30 dark:border-amber-800/20">
+                                <span className="font-bold">{i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'}</span>
+                                <span className="font-semibold text-gray-700 dark:text-gray-300">{c.name}</span>
+                                <div className="ml-auto flex items-center gap-1">
+                                  <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                                  <span className="font-bold text-amber-600 dark:text-amber-400">{avg.toFixed(1)}</span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Leader podium */}
-                  {sorted.filter((c) => c.lligatCount > 0).length >= 2 && (
+                  {sorted.filter((c) => c.lligatCount > 0 && !EXEMPT_IDS.has(c.id)).length >= 2 && (
                     <div className="mt-4 p-3 bg-gradient-to-r from-amber-50/50 to-orange-50/50 dark:from-amber-900/10 dark:to-orange-900/10 rounded-xl border border-amber-100/30 dark:border-amber-800/20">
-                      <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 mb-2 text-center">PodIUM</p>
+                      <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 mb-2 text-center">🏆 PODIUM</p>
                       <div className="flex items-end justify-center gap-1.5">
                         {/* 2nd place */}
-                        {sorted[1] && sorted[1].lligatCount > 0 && (
-                          <div className="text-center flex-1">
-                            <div className="relative w-9 h-9 mx-auto rounded-full overflow-hidden ring-2 ring-gray-300 dark:ring-gray-600 mb-1">
-                              <img src={sorted[1].photo} alt={sorted[1].name} className="w-full h-full object-cover" />
+                        {sorted.filter(c => !EXEMPT_IDS.has(c.id))[1]?.lligatCount > 0 && (() => {
+                          const p = sorted.filter(c => !EXEMPT_IDS.has(c.id))[1]
+                          return (
+                            <div className="text-center flex-1">
+                              <div className="relative w-9 h-9 mx-auto rounded-full overflow-hidden ring-2 ring-gray-300 dark:ring-gray-600 mb-1">
+                                <img src={p.photo} alt={p.name} style={imagePositionOverrides[p.id] ? { objectPosition: imagePositionOverrides[p.id] } : undefined} className="w-full h-full object-cover" />
+                              </div>
+                              <p className="text-[9px] font-bold text-gray-600 dark:text-gray-400 truncate">{p.name}</p>
+                              <div className="mt-0.5 bg-gray-200 dark:bg-gray-700 rounded text-[10px] font-bold text-gray-600 dark:text-gray-400 py-0.5">
+                                {p.lligatCount}
+                              </div>
+                              <div className="h-12 bg-gray-200/50 dark:bg-gray-700/50 rounded-t mt-1" />
+                              <span className="text-xs">🥈</span>
                             </div>
-                            <p className="text-[9px] font-bold text-gray-600 dark:text-gray-400 truncate">{sorted[1].name}</p>
-                            <div className="mt-0.5 bg-gray-200 dark:bg-gray-700 rounded text-[10px] font-bold text-gray-600 dark:text-gray-400 py-0.5">
-                              {sorted[1].lligatCount}
-                            </div>
-                            <div className="h-12 bg-gray-200/50 dark:bg-gray-700/50 rounded-t mt-1" />
-                            <span className="text-xs">🥈</span>
-                          </div>
-                        )}
+                          )
+                        })()}
                         {/* 1st place */}
-                        {sorted[0] && sorted[0].lligatCount > 0 && (
-                          <div className="text-center flex-1">
-                            <Crown className="w-5 h-5 text-amber-400 mx-auto mb-0.5" />
-                            <div className="relative w-11 h-11 mx-auto rounded-full overflow-hidden ring-2 ring-amber-400 mb-1">
-                              <img src={sorted[0].photo} alt={sorted[0].name} className="w-full h-full object-cover" />
+                        {sorted.filter(c => !EXEMPT_IDS.has(c.id))[0]?.lligatCount > 0 && (() => {
+                          const p = sorted.filter(c => !EXEMPT_IDS.has(c.id))[0]
+                          return (
+                            <div className="text-center flex-1">
+                              <Crown className="w-5 h-5 text-amber-400 mx-auto mb-0.5" />
+                              <div className="relative w-11 h-11 mx-auto rounded-full overflow-hidden ring-2 ring-amber-400 mb-1">
+                                <img src={p.photo} alt={p.name} style={imagePositionOverrides[p.id] ? { objectPosition: imagePositionOverrides[p.id] } : undefined} className="w-full h-full object-cover" />
+                              </div>
+                              <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 truncate">{p.name}</p>
+                              <div className="mt-0.5 bg-amber-200 dark:bg-amber-800/50 rounded text-[11px] font-bold text-amber-700 dark:text-amber-400 py-0.5">
+                                {p.lligatCount}
+                              </div>
+                              <div className="h-16 bg-amber-200/50 dark:bg-amber-800/30 rounded-t mt-1" />
+                              <span className="text-sm">👑</span>
                             </div>
-                            <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 truncate">{sorted[0].name}</p>
-                            <div className="mt-0.5 bg-amber-200 dark:bg-amber-800/50 rounded text-[11px] font-bold text-amber-700 dark:text-amber-400 py-0.5">
-                              {sorted[0].lligatCount}
-                            </div>
-                            <div className="h-16 bg-amber-200/50 dark:bg-amber-800/30 rounded-t mt-1" />
-                            <span className="text-sm">👑</span>
-                          </div>
-                        )}
+                          )
+                        })()}
                         {/* 3rd place */}
-                        {sorted[2] && sorted[2].lligatCount > 0 && (
-                          <div className="text-center flex-1">
-                            <div className="relative w-9 h-9 mx-auto rounded-full overflow-hidden ring-2 ring-orange-300 dark:ring-orange-700 mb-1">
-                              <img src={sorted[2].photo} alt={sorted[2].name} className="w-full h-full object-cover" />
+                        {sorted.filter(c => !EXEMPT_IDS.has(c.id))[2]?.lligatCount > 0 && (() => {
+                          const p = sorted.filter(c => !EXEMPT_IDS.has(c.id))[2]
+                          return (
+                            <div className="text-center flex-1">
+                              <div className="relative w-9 h-9 mx-auto rounded-full overflow-hidden ring-2 ring-orange-300 dark:ring-orange-700 mb-1">
+                                <img src={p.photo} alt={p.name} style={imagePositionOverrides[p.id] ? { objectPosition: imagePositionOverrides[p.id] } : undefined} className="w-full h-full object-cover" />
+                              </div>
+                              <p className="text-[9px] font-bold text-gray-600 dark:text-gray-400 truncate">{p.name}</p>
+                              <div className="mt-0.5 bg-orange-200 dark:bg-orange-800/50 rounded text-[10px] font-bold text-orange-700 dark:text-orange-400 py-0.5">
+                                {p.lligatCount}
+                              </div>
+                              <div className="h-8 bg-orange-200/50 dark:bg-orange-800/30 rounded-t mt-1" />
+                              <span className="text-xs">🥉</span>
                             </div>
-                            <p className="text-[9px] font-bold text-gray-600 dark:text-gray-400 truncate">{sorted[2].name}</p>
-                            <div className="mt-0.5 bg-orange-200 dark:bg-orange-800/50 rounded text-[10px] font-bold text-orange-700 dark:text-orange-400 py-0.5">
-                              {sorted[2].lligatCount}
-                            </div>
-                            <div className="h-8 bg-orange-200/50 dark:bg-orange-800/30 rounded-t mt-1" />
-                            <span className="text-xs">🥉</span>
-                          </div>
-                        )}
+                          )
+                        })()}
                       </div>
                     </div>
                   )}
@@ -1011,6 +1152,8 @@ export default function Home() {
                     <p>📊 Es guarda automàticament</p>
                     <p>🔄 S&apos;actualitza cada 10 segons</p>
                     <p>📋 Comparteix la classificació!</p>
+                    <p>💋 Afegeix detalls de cada lligada</p>
+                    <p>⭐ Valora cada trobada (1-10)</p>
                     <div className="mt-2 pt-2 border-t border-purple-200/50 dark:border-purple-800/30">
                       <p className="text-purple-600 dark:text-purple-400 font-bold flex items-center gap-1">
                         🏳️‍🌈 Regla especial: ElRey
@@ -1060,7 +1203,7 @@ export default function Home() {
                             Detalls de la lligada 💋
                           </h3>
                           <p className="text-[10px] text-gray-500 dark:text-gray-400">
-                            {candidates.find((c) => c.id === showLigueForm)?.name} ha lligat! Explica'ns...
+                            {candidates.find((c) => c.id === showLigueForm)?.name} ha lligat! Explica&apos;ns...
                           </p>
                         </div>
                       </div>
@@ -1099,7 +1242,7 @@ export default function Home() {
                       {/* Ubi */}
                       <div>
                         <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 flex items-center gap-1.5 mb-1">
-                          <Hash className="w-3 h-3 text-cyan-400" /> Ubicació
+                          <MapPin className="w-3 h-3 text-cyan-400" /> Ubicació
                         </label>
                         <Input
                           value={ligueUbi}
@@ -1114,11 +1257,11 @@ export default function Home() {
                         <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 flex items-center gap-1.5 mb-2">
                           <Star className="w-3 h-3 text-amber-400" /> Valoració (1-10)
                         </label>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 flex-wrap">
                           {Array.from({ length: 10 }, (_, i) => i + 1).map((val) => (
                             <button
                               key={val}
-                              onClick={() => setLigueRating(val)}
+                              onClick={() => setLigueRating(val === ligueRating ? 0 : val)}
                               className={`w-8 h-8 rounded-lg text-xs font-bold transition-all duration-200 ${
                                 val <= ligueRating
                                   ? 'bg-gradient-to-b from-amber-400 to-orange-500 text-white shadow-md scale-105'
@@ -1196,9 +1339,14 @@ export default function Home() {
                             className="w-full h-full object-cover"
                           />
                         </div>
-                        <h3 className="font-bold text-gray-800 dark:text-gray-200">
-                          Historial de {candidates.find((c) => c.id === showLigueHistory)?.name} 📖
-                        </h3>
+                        <div>
+                          <h3 className="font-bold text-gray-800 dark:text-gray-200">
+                            Historial de {candidates.find((c) => c.id === showLigueHistory)?.name} 📖
+                          </h3>
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                            {ligues.filter((l) => l.personId === showLigueHistory).length} lligada{ligues.filter((l) => l.personId === showLigueHistory).length !== 1 ? 'es' : ''} registrada{ligues.filter((l) => l.personId === showLigueHistory).length !== 1 ? 'es' : ''}
+                          </p>
+                        </div>
                       </div>
                       <button onClick={() => setShowLigueHistory(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
                         <X className="w-5 h-5" />
@@ -1212,29 +1360,29 @@ export default function Home() {
                     ) : (
                       <div className="space-y-2">
                         {ligues.filter((l) => l.personId === showLigueHistory).map((ligue) => (
-                          <div key={ligue.id} className="p-3 rounded-xl bg-gradient-to-r from-orange-50/50 to-rose-50/50 dark:from-orange-900/10 dark:to-rose-900/10 border border-orange-100/50 dark:border-orange-800/30">
+                          <div key={ligue.id} className="p-3 rounded-xl bg-gradient-to-r from-orange-50/50 to-rose-50/50 dark:from-orange-900/10 dark:to-rose-900/10 border border-orange-100/50 dark:border-orange-800/30 relative group">
                             <div className="grid grid-cols-2 gap-2 text-xs">
                               {ligue.nom && (
                                 <div>
-                                  <span className="text-gray-400 dark:text-gray-500">Nom:</span>
+                                  <span className="text-gray-400 dark:text-gray-500 flex items-center gap-0.5"><Heart className="w-2.5 h-2.5" /> Nom:</span>
                                   <p className="font-semibold text-gray-700 dark:text-gray-300">{ligue.nom}</p>
                                 </div>
                               )}
                               {ligue.edat && (
                                 <div>
-                                  <span className="text-gray-400 dark:text-gray-500">Edat:</span>
+                                  <span className="text-gray-400 dark:text-gray-500 flex items-center gap-0.5"><Users className="w-2.5 h-2.5" /> Edat:</span>
                                   <p className="font-semibold text-gray-700 dark:text-gray-300">{ligue.edat}</p>
                                 </div>
                               )}
                               {ligue.ubi && (
                                 <div>
-                                  <span className="text-gray-400 dark:text-gray-500">Ubi:</span>
+                                  <span className="text-gray-400 dark:text-gray-500 flex items-center gap-0.5"><MapPin className="w-2.5 h-2.5" /> Ubi:</span>
                                   <p className="font-semibold text-gray-700 dark:text-gray-300">{ligue.ubi}</p>
                                 </div>
                               )}
                               {ligue.rating > 0 && (
                                 <div>
-                                  <span className="text-gray-400 dark:text-gray-500">Valoració:</span>
+                                  <span className="text-gray-400 dark:text-gray-500 flex items-center gap-0.5"><Star className="w-2.5 h-2.5" /> Valoració:</span>
                                   <div className="flex items-center gap-1">
                                     {Array.from({ length: 10 }, (_, i) => (
                                       <span key={i} className={`text-[10px] ${i < ligue.rating ? 'text-amber-400' : 'text-gray-300 dark:text-gray-700'}`}>★</span>
@@ -1244,7 +1392,18 @@ export default function Home() {
                                 </div>
                               )}
                             </div>
-                            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">{timeAgo(ligue.createdAt)}</p>
+                            <div className="flex items-center justify-between mt-1">
+                              <p className="text-[10px] text-gray-400 dark:text-gray-500 flex items-center gap-0.5">
+                                <Calendar className="w-2.5 h-2.5" /> {timeAgo(ligue.createdAt)}
+                              </p>
+                              <button
+                                onClick={() => deleteLigue(ligue.id)}
+                                className="text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                                title="Eliminar lligada"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1256,11 +1415,92 @@ export default function Home() {
           )}
         </AnimatePresence>
 
+        {/* ─── Share Modal ─── */}
+        <AnimatePresence>
+          {showShareModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+              onClick={() => setShowShareModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.8, y: 30 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.8, y: 30 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-md"
+              >
+                <Card className="bg-white dark:bg-gray-900 shadow-2xl border-2 border-emerald-200 dark:border-emerald-800 overflow-hidden">
+                  <div className="h-2 bg-gradient-to-r from-emerald-400 to-teal-400" />
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-bold text-gray-800 dark:text-gray-200">Compartir Classificació</h3>
+                      <button onClick={() => setShowShareModal(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <textarea
+                      readOnly
+                      value={shareText}
+                      className="w-full h-40 p-3 text-xs bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                    />
+                    <div className="flex gap-2 mt-3">
+                      <Button
+                        onClick={() => {
+                          navigator.clipboard.writeText(shareText)
+                          addToast('Copiat al porta-retalls!', 'success')
+                          setShowShareModal(false)
+                        }}
+                        className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold"
+                      >
+                        Copiar text 📋
+                      </Button>
+                      <Button variant="ghost" onClick={() => setShowShareModal(false)}>
+                        Tancar
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ─── Reset Confirmation Dialog ─── */}
+        <Dialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <RotateCcw className="w-5 h-5 text-red-500" />
+                Reiniciar tots els comptadors?
+              </DialogTitle>
+              <DialogDescription>
+                Això posarà tots els comptadors a 0. Aquesta acció no es pot desfer. Els detalls de les lligues es mantindran.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex gap-2 sm:gap-0">
+              <Button variant="ghost" onClick={() => setShowResetConfirm(false)}>
+                Cancel·lar
+              </Button>
+              <Button variant="destructive" onClick={resetAll} className="gap-1">
+                <RotateCcw className="w-3.5 h-3.5" /> Reiniciar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* ─── Footer ─── */}
         <footer className="relative z-10 mt-auto py-3 px-4 text-center border-t border-orange-100/30 dark:border-gray-800/30 bg-white/30 dark:bg-gray-900/30 backdrop-blur-sm">
-          <p className="text-xs text-gray-400 dark:text-gray-600">
-            🔥 Qui lliga més aquest estiu? &copy; {new Date().getFullYear()} 🔥
-          </p>
+          <div className="flex items-center justify-center gap-3 text-[10px] text-gray-400 dark:text-gray-600">
+            <span>🔥 Qui lliga més aquest estiu? &copy; {new Date().getFullYear()}</span>
+            {lastActivityTime && (
+              <span className="flex items-center gap-1">
+                <TrendingUp className="w-3 h-3" /> Última activitat: {lastActivityTime}
+              </span>
+            )}
+          </div>
         </footer>
       </div>
     </TooltipProvider>
