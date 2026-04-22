@@ -159,6 +159,45 @@ Stage Summary:
 - Code stable at ~640 lines, lint-clean, all APIs functional
 - Sandbox OOM issue persists (infrastructure constraint)
 
+---
+
+Task ID: 11
+Agent: Review Agent (Cron) - Round 9
+Task: QA testing, bug fixes, styling improvements, and new features
+
+Work Log:
+- **QA Testing**: Verified page renders correctly, increment works, achievements display, heatmap visible, profile modal functional
+- **Bug fixes**:
+  - Removed unused imports: `ChevronDown`, `ChevronRight`, `Hash` (3 unused imports)
+  - Replaced unused `getDayLabel` function with `getActivityHeatmap` function
+- **Styling improvements**:
+  - Animated gradient border on leaderboard #1 (cycling gold/red/orange)
+  - Achievement unlock flash animation (golden background flash)
+  - Number pop animation for count changes
+  - Card shine effect on hover (radial gradient overlay via ::before pseudo-element)
+  - Enhanced candidate card with better z-indexing for overlay effects
+- **New features added**:
+  - **Activity Heatmap**: 7-day bar chart in stats panel showing lligues per day with tooltips (indigo/violet themed)
+  - **Recent Ligues Feed**: Shows last 5 ligue entries with person photo, name, partner name, rating, and timestamp (pink/rose themed)
+  - **Achievement Confetti**: Special confetti burst + toast notification when a new achievement is unlocked (e.g., "Ian ha desbloquejat 'Primera Sang' 🩸!")
+  - **Next Achievement Progress**: In profile modal, shows progress bar toward next achievement with current/target count
+  - **BarChart3 icon**: New icon for heatmap section header
+  - **Medal icon**: New icon for recent ligues feed header
+- **CSS additions**:
+  - `animate-gradient-border`: 3s cycling border-color animation for champion
+  - `animate-achievement-flash`: 1.5s golden flash animation
+  - `animate-number-pop`: 0.3s scale pop animation for numbers
+  - `.candidate-card-hover::before`: Radial gradient shine effect on hover
+- **Lint**: Passes clean
+- **QA Results**: All features verified working via agent-browser
+
+Stage Summary:
+- 3 unused imports removed, 1 unused function replaced
+- 4 CSS animations added (gradient border, achievement flash, number pop, card shine)
+- 4 new features (activity heatmap, recent ligues feed, achievement confetti, next achievement progress)
+- Code stable at ~850 lines, lint-clean, all APIs functional
+- Sandbox OOM issue persists (infrastructure constraint)
+
 ## Unresolved Issues / Risks
 
 - **Sandbox memory**: Dev server gets OOM-killed periodically by sandbox cgroup limits
@@ -175,5 +214,7 @@ Stage Summary:
 - Make exempt status configurable via admin UI
 - Add ligue detail time-based filtering (this week, this month)
 - Add drag-and-drop candidate reordering
-- Consider adding confetti customization
+- Add "most improved" stat (biggest rank change this week)
+- Add emoji reactions to ligue entries
+- Add PWA support for offline access
 - Consider upgrading sandbox memory allocation

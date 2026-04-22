@@ -14,10 +14,10 @@ import {
 } from '@/components/ui/dialog'
 import {
   Flame, Trophy, Heart, RotateCcw, Star, Zap, Crown, Sparkles,
-  Moon, Sun, Share2, Clock, ChevronUp, Users, Hash,
+  Moon, Sun, Share2, Clock, ChevronUp, Users,
   ArrowUp, ArrowDown, RefreshCw, X, Trash2, TrendingUp, MapPin, Calendar, Award,
   Volume2, VolumeX, Target, Timer, Swords, Gauge, Undo2, Search,
-  PartyPopper, Activity, Eye, ChevronDown, ChevronRight, Info, MessageCircle,
+  PartyPopper, Activity, Eye, Info, MessageCircle, BarChart3, Medal,
 } from 'lucide-react'
 
 /* ─── Types ─── */
@@ -65,14 +65,21 @@ function getMotivation(t: number): string {
   return 'LEGENDARI! 👑🏆🎊'
 }
 
-function getDayLabel(dateStr: string): string {
-  const d = new Date(dateStr)
+// Activity heatmap: returns array of last 7 days with counts
+function getActivityHeatmap(activity: ActivityEntry[]): { day: string; count: number; label: string }[] {
+  const days = ['Dl', 'Dm', 'Dc', 'Dj', 'Dv', 'Ds', 'Dg']
+  const result: { day: string; count: number; label: string }[] = []
   const now = new Date()
-  const diff = Math.floor((now.getTime() - d.getTime()) / 86400000)
-  if (diff === 0) return 'Avui'
-  if (diff === 1) return 'Ahir'
-  if (diff < 7) return `fa ${diff}d`
-  return d.toLocaleDateString('ca-ES', { day: 'numeric', month: 'short' })
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now)
+    d.setDate(d.getDate() - i)
+    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+    const dayEnd = dayStart + 86400000
+    const count = activity.filter(a => a.action === 'increment' && new Date(a.createdAt).getTime() >= dayStart && new Date(a.createdAt).getTime() < dayEnd).length
+    const dayIdx = d.getDay() === 0 ? 6 : d.getDay() - 1
+    result.push({ day: days[dayIdx], count, label: i === 0 ? 'Avui' : i === 1 ? 'Ahir' : `fa ${i}d` })
+  }
+  return result
 }
 
 export default function Home() {
@@ -148,6 +155,12 @@ export default function Home() {
     setCandidates(p => { const c = p.find(x => x.id === id); if (!c) return p; nc = c.lligatCount + 1; pn = c.name; prev = c.lligatCount; return p.map(x => x.id === id ? { ...x, lligatCount: nc } : x) })
     fetch(`/api/candidates/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lligatCount: nc }) }).then(() => fetch('/api/activity').then(r => r.json()).then(setActivity))
     addToast(`${pn} +1! 💪`, 'success'); playDing()
+    // Check for achievement unlock
+    const newAchievement = ACHIEVEMENTS.find(a => a.min === nc)
+    if (newAchievement) {
+      addToast(`${pn} ha desbloquejat "${newAchievement.name}" ${newAchievement.emoji}!`, 'warning')
+      setShowConfetti(true); setTimeout(() => setShowConfetti(false), 5000)
+    }
     lastActionRef.current = { type: 'increment', personId: id, personName: pn, prevCount: prev }; setHasLastAction(true)
     setLigueHintId(id)
     if (ligueHintTimer.current) clearTimeout(ligueHintTimer.current)
@@ -252,6 +265,12 @@ export default function Home() {
     const sorted = Object.entries(perPerson).sort((a, b) => b[1] - a[1])
     return { total: weekActivity.length, top: sorted[0] ? { id: sorted[0][0], count: sorted[0][1] } : null }
   }, [activity])
+
+  const heatmap = useMemo(() => getActivityHeatmap(activity), [activity])
+
+  const recentLigues = useMemo(() => {
+    return ligues.filter(l => l.nom || l.ubi || l.rating > 0).slice(0, 5)
+  }, [ligues])
 
   const [summerDays, setSummerDays] = useState('')
   useEffect(() => { const end = new Date('2026-09-22'); const u = () => { const d = Math.floor((end.getTime() - Date.now()) / 86400000); const h = Math.floor(((end.getTime() - Date.now()) % 86400000) / 3600000); setSummerDays(`${d}d ${h}h`) }; u(); const iv = setInterval(u, 60000); return () => clearInterval(iv) }, [])
@@ -457,7 +476,7 @@ export default function Home() {
                       const barWidth = maxCount>0?(person.lligatCount/maxCount)*100:0
                       const avgR = getAvgRating(person.id); const pLigues = ligues.filter(l => l.personId===person.id)
                       const rc = rankChanges[person.id]||0; const isExempt = EXEMPT_IDS.has(person.id)
-                      const stripe = !isExempt&&index===0?'rank-stripe-gold':!isExempt&&index===1?'rank-stripe-silver':!isExempt&&index===2?'rank-stripe-bronze':''
+                      const stripe = !isExempt&&index===0?'rank-stripe-gold animate-gradient-border':!isExempt&&index===1?'rank-stripe-silver':!isExempt&&index===2?'rank-stripe-bronze':''
                       return (
                         <div key={person.id} className={`relative flex items-center gap-2.5 p-2.5 rounded-xl transition-all duration-300 animate-card-entrance ${stripe} ${isExempt?'bg-purple-50/60 dark:bg-purple-900/15 border border-purple-200/40 dark:border-purple-800/30':index===0?'bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/50 dark:border-amber-800/50':index===1?'bg-gray-50/80 dark:bg-stone-800/30 border border-gray-200/50 dark:border-stone-700/50':index===2?'bg-orange-50/80 dark:bg-orange-900/15 border border-orange-200/50 dark:border-orange-800/50':'border border-transparent hover:bg-orange-50/30 dark:hover:bg-stone-800/20'}`} style={{ animationDelay: `${index*40}ms` }}>
                           <div className="flex flex-col items-center w-8 flex-shrink-0">
@@ -576,6 +595,38 @@ export default function Home() {
                   <div className="mt-3 p-2.5 bg-gradient-to-r from-orange-50/50 to-rose-50/50 dark:from-orange-900/10 dark:to-rose-900/10 rounded-xl border border-orange-100/30 dark:border-orange-800/20">
                     <p className="text-[11px] text-center text-gray-500 dark:text-stone-400 italic">{getMotivation(totalLligues)}</p>
                   </div>
+                  {/* Activity Heatmap */}
+                  {totalLligues > 0 && (
+                    <div className="mt-3 p-2.5 rounded-lg bg-gradient-to-r from-indigo-50/50 to-violet-50/50 dark:from-indigo-900/10 dark:to-violet-900/10 border border-indigo-100/30 dark:border-indigo-800/20">
+                      <div className="flex items-center gap-1.5 mb-2"><BarChart3 className="w-3 h-3 text-indigo-500" /><span className="text-[10px] font-bold text-gray-500 dark:text-stone-400">Activitat 7 dies</span></div>
+                      <div className="flex items-end gap-1.5">{heatmap.map((d, i) => {
+                        const maxC = Math.max(...heatmap.map(h => h.count), 1)
+                        const h = d.count > 0 ? Math.max(Math.round((d.count / maxC) * 28), 6) : 4
+                        const opacity = d.count === 0 ? 0.15 : d.count / maxC
+                        return (
+                          <Tooltip key={i}><TooltipTrigger asChild><div className="flex-1 flex flex-col items-center gap-0.5">
+                            <div className={`w-full rounded-sm transition-all duration-500 ${d.count > 0 ? 'bg-indigo-400 dark:bg-indigo-500' : 'bg-gray-200 dark:bg-stone-700'}`} style={{ height: `${h}px`, opacity: d.count > 0 ? 0.5 + opacity * 0.5 : 1 }} />
+                            <span className="text-[7px] text-gray-400">{d.day}</span>
+                          </div></TooltipTrigger><TooltipContent side="bottom" className="text-xs">{d.label}: {d.count} lligades</TooltipContent></Tooltip>
+                        )
+                      })}</div>
+                    </div>
+                  )}
+                  {/* Recent Ligues Feed */}
+                  {recentLigues.length > 0 && (
+                    <div className="mt-3 p-2.5 rounded-lg bg-gradient-to-r from-pink-50/50 to-rose-50/50 dark:from-pink-900/10 dark:to-rose-900/10 border border-pink-100/30 dark:border-pink-800/20">
+                      <div className="flex items-center gap-1.5 mb-2"><Medal className="w-3 h-3 text-pink-500" /><span className="text-[10px] font-bold text-gray-500 dark:text-stone-400">Últimes lligades</span></div>
+                      <div className="space-y-1.5 max-h-32 overflow-y-auto custom-scrollbar">{recentLigues.map(l => (
+                        <div key={l.id} className="flex items-center gap-2 text-[10px] p-1.5 rounded-lg bg-white/50 dark:bg-stone-800/50 border border-pink-100/20 dark:border-pink-800/10">
+                          <div className="w-5 h-5 rounded-full overflow-hidden ring-1 ring-gray-200 dark:ring-stone-700 flex-shrink-0"><img src={candidates.find(c => c.id === l.personId)?.photo || ''} alt="" className="w-full h-full object-cover" /></div>
+                          <span className="font-semibold text-gray-700 dark:text-stone-300 truncate">{l.personName}</span>
+                          {l.nom && <span className="text-gray-400 truncate">→ {l.nom}</span>}
+                          {l.rating > 0 && <span className="ml-auto text-amber-500 font-bold">{l.rating}⭐</span>}
+                          <span className="text-gray-400 ml-auto flex-shrink-0">{timeAgo(l.createdAt)}</span>
+                        </div>
+                      ))}</div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
               {/* Rules */}
@@ -653,13 +704,30 @@ export default function Home() {
                         <p className="text-[9px] text-gray-500">Ratxa 🔥</p>
                       </div>
                     </div>
-                    {/* Achievements */}
-                    {achs.length > 0 && (
-                      <div className="mb-4">
-                        <p className="text-[11px] font-bold text-gray-500 mb-1.5">🏅 Fites</p>
-                        <div className="flex items-center gap-1 flex-wrap">{achs.map(a => <Tooltip key={a.id}><TooltipTrigger asChild><span className="px-2 py-1 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/10 dark:to-amber-900/10 rounded-full text-xs border border-orange-100/30 dark:border-orange-800/20">{a.emoji} {a.name}</span></TooltipTrigger><TooltipContent side="bottom" className="text-xs">{a.desc}</TooltipContent></Tooltip>)}</div>
-                      </div>
-                    )}
+                    {/* Achievements + Next Achievement Progress */}
+                    <div className="mb-4">
+                      <p className="text-[11px] font-bold text-gray-500 mb-1.5">🏅 Fites</p>
+                      {achs.length > 0 && (
+                        <div className="flex items-center gap-1 flex-wrap mb-2">{achs.map(a => <Tooltip key={a.id}><TooltipTrigger asChild><span className="px-2 py-1 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/10 dark:to-amber-900/10 rounded-full text-xs border border-orange-100/30 dark:border-orange-800/20">{a.emoji} {a.name}</span></TooltipTrigger><TooltipContent side="bottom" className="text-xs">{a.desc}</TooltipContent></Tooltip>)}</div>
+                      )}
+                      {(() => {
+                        const nextAch = ACHIEVEMENTS.find(a => a.min > person.lligatCount)
+                        if (!nextAch) return null
+                        const prevMin = ACHIEVEMENTS.filter(a => a.min <= person.lligatCount).pop()?.min || 0
+                        const progress = nextAch.min - prevMin > 0 ? ((person.lligatCount - prevMin) / (nextAch.min - prevMin)) * 100 : 0
+                        return (
+                          <div className="p-2 rounded-lg bg-gradient-to-r from-amber-50/50 to-orange-50/50 dark:from-amber-900/10 dark:to-orange-900/10 border border-amber-100/30 dark:border-amber-800/20">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] text-gray-500">Següent: {nextAch.emoji} {nextAch.name}</span>
+                              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">{person.lligatCount}/{nextAch.min}</span>
+                            </div>
+                            <div className="h-2 bg-gray-200/60 dark:bg-stone-700/40 rounded-full overflow-hidden">
+                              <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-500" style={{ width: `${progress}%` }} />
+                            </div>
+                          </div>
+                        )
+                      })()}
+                    </div>
                     {/* Activity */}
                     {pActivity.length > 0 && (
                       <div className="mb-4">
