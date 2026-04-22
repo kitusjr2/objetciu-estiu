@@ -25,7 +25,8 @@ import {
   Star, Zap, Crown, Sparkles,
   Moon, Sun, Share2, Clock,
   ChevronUp, Users, Hash,
-  ArrowUp, ArrowDown, RefreshCw, X, Trash2, TrendingUp, MapPin, Calendar, Award
+  ArrowUp, ArrowDown, RefreshCw, X, Trash2, TrendingUp, MapPin, Calendar, Award,
+  Volume2, VolumeX, ChevronDown, ChevronRight, Target, Swords, Rocket
 } from 'lucide-react'
 
 /* ─── Types ─── */
@@ -60,6 +61,21 @@ interface LigueEntry {
 
 /* ─── Exempt participants (ElRey is GAY and lliga molt, would humiliate everyone) ─── */
 const EXEMPT_IDS = new Set(['elrey'])
+
+/* ─── Achievement Definitions ─── */
+const ACHIEVEMENTS: Record<string, { id: string; name: string; emoji: string; desc: string; check: (count: number, ligues: LigueEntry[]) => boolean }> = {
+  first_blood: { id: 'first_blood', name: 'Primera Sang', emoji: '🩸', desc: 'Primera lligada del grup', check: (count) => count >= 1 },
+  hat_trick: { id: 'hat_trick', name: 'Hat Trick', emoji: '🎩', desc: '3 lligades', check: (count) => count >= 3 },
+  machine: { id: 'machine', name: 'Màquina', emoji: '🤖', desc: '5 lligades', check: (count) => count >= 5 },
+  double_digits: { id: 'double_digits', name: 'Dobles Dígits', emoji: '🔥', desc: '10 lligades', check: (count) => count >= 10 },
+  legend: { id: 'legend', name: 'Llegenda', emoji: '👑', desc: '20 lligades', check: (count) => count >= 20 },
+  taste_tester: { id: 'taste_tester', name: 'Tastavides', emoji: '🌍', desc: '3 ubicacions diferents', check: (_, ligues) => new Set(ligues.map(l => l.ubi).filter(Boolean)).size >= 3 },
+  high_standards: { id: 'high_standards', name: 'Exigent', emoji: '💎', desc: 'Valoració mitjana 8+', check: (_, ligues) => {
+    const rated = ligues.filter(l => l.rating > 0)
+    return rated.length >= 2 && rated.reduce((s, l) => s + l.rating, 0) / rated.length >= 8
+  }},
+  variety: { id: 'variety', name: 'Varietat', emoji: '🎯', desc: '5 noms diferents', check: (_, ligues) => new Set(ligues.map(l => l.nom).filter(Boolean)).size >= 5 },
+}
 
 /* ─── Confetti ─── */
 function Confetti() {
@@ -228,8 +244,17 @@ export default function Home() {
   const [showLigueHistory, setShowLigueHistory] = useState<string | null>(null)
   // New: recently incremented tracker for animation
   const [recentlyIncremented, setRecentlyIncremented] = useState<Set<string>>(new Set())
+  // Sound toggle
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    if (typeof window === 'undefined') return true
+    return localStorage.getItem('objetciu-sound') !== 'false'
+  })
+  // Rank change tracking
+  const [rankChanges, setRankChanges] = useState<Record<string, number>>({})
+  const prevRanks = useRef<Record<string, number>>({})
   const toastId = useRef(0)
   const prevTopId = useRef<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
   // Image position adjustments (shift image to show face)
   const imagePositionOverrides: Record<string, string> = {
@@ -270,18 +295,23 @@ export default function Home() {
   useEffect(() => { document.documentElement.classList.toggle('dark', darkMode) }, [darkMode])
   useEffect(() => { localStorage.setItem('objetciu-dark-mode', String(darkMode)) }, [darkMode])
 
-  // Confetti when someone takes the #1 spot
+  // Sound persistence
+  useEffect(() => { localStorage.setItem('objetciu-sound', String(soundEnabled)) }, [soundEnabled])
+
+  // Initialize audio element
   useEffect(() => {
-    const nonExemptSorted = [...candidates].filter((c) => !EXEMPT_IDS.has(c.id)).sort((a, b) => b.lligatCount - a.lligatCount)
-    if (nonExemptSorted.length > 0 && nonExemptSorted[0].lligatCount > 0) {
-      const newTopId = nonExemptSorted[0].id
-      if (prevTopId.current !== null && prevTopId.current !== newTopId) {
-        triggerConfetti()
-        addToast(`${nonExemptSorted[0].name} és el nou líder! 👑`, 'warning')
-      }
-      prevTopId.current = newTopId
+    audioRef.current = new Audio('/sounds/ding.mp3')
+    audioRef.current.volume = 0.3
+    return () => { audioRef.current = null }
+  }, [])
+
+  // Play sound helper
+  const playDing = useCallback(() => {
+    if (soundEnabled && audioRef.current) {
+      audioRef.current.currentTime = 0
+      audioRef.current.play().catch(() => {})
     }
-  }, [candidates])
+  }, [soundEnabled])
 
   const addToast = useCallback((message: string, type: 'success' | 'info' | 'warning' = 'info') => {
     const id = ++toastId.current
@@ -293,6 +323,41 @@ export default function Home() {
     setShowConfetti(true)
     setTimeout(() => setShowConfetti(false), 6000)
   }, [])
+
+  // Confetti when someone takes the #1 spot
+  useEffect(() => {
+    const nonExemptSorted = [...candidates].filter((c) => !EXEMPT_IDS.has(c.id)).sort((a, b) => b.lligatCount - a.lligatCount)
+    if (nonExemptSorted.length > 0 && nonExemptSorted[0].lligatCount > 0) {
+      const newTopId = nonExemptSorted[0].id
+      if (prevTopId.current !== null && prevTopId.current !== newTopId) {
+        triggerConfetti()
+        addToast(`${nonExemptSorted[0].name} és el nou líder! 👑`, 'warning')
+      }
+      prevTopId.current = newTopId
+    }
+  }, [candidates, triggerConfetti, addToast])
+
+  // Track rank changes on data refresh
+  useEffect(() => {
+    const newRanks: Record<string, number> = {}
+    const nonExemptSorted = [...candidates].filter((c) => !EXEMPT_IDS.has(c.id)).sort((a, b) => b.lligatCount - a.lligatCount || a.order - b.order)
+    nonExemptSorted.forEach((c, i) => { newRanks[c.id] = i })
+    // Compare with previous ranks
+    const changes: Record<string, number> = {}
+    if (Object.keys(prevRanks.current).length > 0) {
+      for (const [id, newRank] of Object.entries(newRanks)) {
+        const oldRank = prevRanks.current[id]
+        if (oldRank !== undefined && oldRank !== newRank) {
+          changes[id] = oldRank - newRank // positive = went up, negative = went down
+        }
+      }
+    }
+    if (Object.keys(changes).length > 0) {
+      setRankChanges(changes)
+      setTimeout(() => setRankChanges({}), 5000)
+    }
+    prevRanks.current = newRanks
+  }, [candidates])
 
   const updateCount = useCallback(async (id: string, newCount: number) => {
     if (newCount < 0) newCount = 0
@@ -313,41 +378,50 @@ export default function Home() {
   }, [fetchData, addToast])
 
   const increment = useCallback((id: string) => {
+    let newCount = 0
+    let personName = ''
     setCandidates((prev) => {
       const c = prev.find((c) => c.id === id)
       if (!c) return prev
-      const newCount = c.lligatCount + 1
-      fetch(`/api/candidates/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lligatCount: newCount }),
-      }).then(() => {
-        fetch('/api/activity').then(r => r.json()).then(setActivity)
-      })
-      addToast(`${c.name} +1! 💪`, 'success')
-      setShowLigueForm(id)
-      setLigueNom('')
-      setLigueEdat('')
-      setLigueUbi('')
-      setLigueRating(0)
-      // Mark recently incremented for animation
-      setRecentlyIncremented((prev) => new Set(prev).add(id))
-      setTimeout(() => {
-        setRecentlyIncremented((prev) => {
-          const next = new Set(prev)
-          next.delete(id)
-          return next
-        })
-      }, 1500)
+      newCount = c.lligatCount + 1
+      personName = c.name
       return prev.map((p) => p.id === id ? { ...p, lligatCount: newCount } : p)
     })
-  }, [addToast])
+    // Side effects outside the state setter
+    fetch(`/api/candidates/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lligatCount: newCount }),
+    }).then(() => {
+      fetch('/api/activity').then(r => r.json()).then(setActivity)
+    })
+    addToast(`${personName} +1! 💪`, 'success')
+    playDing()
+    setShowLigueForm(id)
+    setLigueNom('')
+    setLigueEdat('')
+    setLigueUbi('')
+    setLigueRating(0)
+    setRecentlyIncremented((prev) => new Set(prev).add(id))
+    setTimeout(() => {
+      setRecentlyIncremented((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    }, 1500)
+  }, [addToast, playDing])
 
   const decrement = useCallback((id: string) => {
+    let newCount = 0
     setCandidates((prev) => {
       const c = prev.find((c) => c.id === id)
       if (!c || c.lligatCount <= 0) return prev
-      const newCount = c.lligatCount - 1
+      newCount = c.lligatCount - 1
+      return prev.map((p) => p.id === id ? { ...p, lligatCount: newCount } : p)
+    })
+    // Side effects outside the state setter
+    if (newCount > 0 || newCount === 0) {
       fetch(`/api/candidates/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -355,8 +429,7 @@ export default function Home() {
       }).then(() => {
         fetch('/api/activity').then(r => r.json()).then(setActivity)
       })
-      return prev.map((p) => p.id === id ? { ...p, lligatCount: newCount } : p)
-    })
+    }
   }, [])
 
   const handleInputSubmit = useCallback((id: string) => {
@@ -480,12 +553,27 @@ export default function Home() {
     return personLigues.reduce((sum, l) => sum + l.rating, 0) / personLigues.length
   }
 
-  // Streak count for a candidate
+  // Streak count for a candidate (consecutive increments from most recent)
   const getStreakCount = (personId: string): number => {
-    const recentActivity = activity
+    const personActivity = activity
       .filter((a) => a.personId === personId)
-      .slice(0, 5)
-    return recentActivity.filter((a) => a.action === 'increment').length
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    let streak = 0
+    for (const entry of personActivity) {
+      if (entry.action === 'increment') streak++
+      else break
+    }
+    return streak
+  }
+
+  // Get achievements for a candidate
+  const getAchievements = (personId: string): string[] => {
+    const c = candidates.find((c) => c.id === personId)
+    const personLigues = ligues.filter((l) => l.personId === personId)
+    if (!c) return []
+    return Object.values(ACHIEVEMENTS)
+      .filter(a => a.check(c.lligatCount, personLigues))
+      .map(a => a.id)
   }
 
   const getRankDisplay = (i: number, isExempt?: boolean) => {
@@ -612,6 +700,16 @@ export default function Home() {
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Reiniciar tot a 0</TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="sm" onClick={() => setSoundEnabled(!soundEnabled)}
+                      className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border-orange-200 dark:border-gray-700 hover:bg-orange-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 gap-1">
+                      {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{soundEnabled ? 'Silenciar so' : 'Activar so'}</TooltipContent>
                 </Tooltip>
               </div>
             </motion.div>
@@ -770,6 +868,24 @@ export default function Home() {
                               </p>
                               {/* Nickname display */}
                               <p className="text-[9px] text-white/60 truncate">{person.nickname}</p>
+                              {/* Achievements row */}
+                              {getAchievements(person.id).length > 0 && (
+                                <div className="flex items-center gap-0.5 mt-0.5 flex-wrap">
+                                  {getAchievements(person.id).map((aId) => {
+                                    const ach = ACHIEVEMENTS[aId]
+                                    return (
+                                      <Tooltip key={aId}>
+                                        <TooltipTrigger asChild>
+                                          <span className="text-[10px] cursor-default">{ach.emoji}</span>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="bottom" className="text-xs">
+                                          <strong>{ach.name}</strong>: {ach.desc}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )
+                                  })}
+                                </div>
+                              )}
                               {/* Avg rating display */}
                               {avgRating > 0 && (
                                 <p className="text-[8px] text-amber-300/80 flex items-center gap-0.5 mt-0.5">
@@ -850,11 +966,11 @@ export default function Home() {
                   ) : (
                     <div className="space-y-2 max-h-[560px] overflow-y-auto custom-scrollbar">
                       {sorted.map((person, index) => {
-                        const nonExemptSorted = sorted.filter((c) => !EXEMPT_IDS.has(c.id))
-                        const maxCount = nonExemptSorted[0]?.lligatCount || 1
+                        const maxCount = sorted.filter((c) => !EXEMPT_IDS.has(c.id))[0]?.lligatCount || 1
                         const barWidth = maxCount > 0 ? (person.lligatCount / maxCount) * 100 : 0
                         const avgRating = getAvgRating(person.id)
                         const personLigues = ligues.filter((l) => l.personId === person.id)
+                        const rankChange = rankChanges[person.id] || 0
                         return (
                           <motion.div
                             key={person.id}
@@ -874,8 +990,25 @@ export default function Home() {
                                 : 'border border-transparent hover:bg-orange-50/30 dark:hover:bg-gray-800/20'
                             }`}
                           >
-                            {/* Rank */}
-                            <span className="text-lg w-8 text-center flex-shrink-0">{getRankDisplay(index, EXEMPT_IDS.has(person.id))}</span>
+                            {/* Rank + rank change arrow */}
+                            <div className="flex flex-col items-center w-8 flex-shrink-0">
+                              <span className="text-lg">{getRankDisplay(index, EXEMPT_IDS.has(person.id))}</span>
+                              <AnimatePresence>
+                                {rankChange !== 0 && !EXEMPT_IDS.has(person.id) && (
+                                  <motion.div
+                                    initial={{ opacity: 0, scale: 0.5 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.5 }}
+                                    className={`text-[9px] font-bold flex items-center gap-0.5 ${
+                                      rankChange > 0 ? 'text-green-500' : 'text-red-500'
+                                    }`}
+                                  >
+                                    {rankChange > 0 ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
+                                    {Math.abs(rankChange)}
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
 
                             {/* Photo */}
                             <div className={`relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ${
@@ -1057,6 +1190,40 @@ export default function Home() {
                     </div>
                   )}
 
+                  {/* Achievements Showcase */}
+                  {candidates.some((c) => getAchievements(c.id).length > 0) && (
+                    <div className="mt-3">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <Target className="w-3.5 h-3.5 text-orange-500" />
+                        <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400">Fites Desbloquejades</p>
+                      </div>
+                      <div className="space-y-1 max-h-32 overflow-y-auto custom-scrollbar">
+                        {candidates
+                          .filter((c) => getAchievements(c.id).length > 0)
+                          .map((c) => (
+                            <div key={c.id} className="flex items-center gap-1.5 text-[10px] px-2 py-1.5 rounded-lg bg-gradient-to-r from-orange-50/50 to-rose-50/50 dark:from-orange-900/10 dark:to-rose-900/10 border border-orange-100/30 dark:border-orange-800/20">
+                              <div className="w-5 h-5 rounded-full overflow-hidden ring-1 ring-gray-200 dark:ring-gray-700 flex-shrink-0">
+                                <img src={c.photo} alt={c.name} style={imagePositionOverrides[c.id] ? { objectPosition: imagePositionOverrides[c.id] } : undefined} className="w-full h-full object-cover" />
+                              </div>
+                              <span className="font-semibold text-gray-700 dark:text-gray-300 truncate">{c.name}</span>
+                              <div className="ml-auto flex items-center gap-0.5">
+                                {getAchievements(c.id).map((aId) => (
+                                  <Tooltip key={aId}>
+                                    <TooltipTrigger asChild>
+                                      <span className="text-xs cursor-default">{ACHIEVEMENTS[aId].emoji}</span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="left" className="text-xs">
+                                      <strong>{ACHIEVEMENTS[aId].name}</strong>: {ACHIEVEMENTS[aId].desc}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Leader podium */}
                   {sorted.filter((c) => c.lligatCount > 0 && !EXEMPT_IDS.has(c.id)).length >= 2 && (
                     <div className="mt-4 p-3 bg-gradient-to-r from-amber-50/50 to-orange-50/50 dark:from-amber-900/10 dark:to-orange-900/10 rounded-xl border border-amber-100/30 dark:border-amber-800/20">
@@ -1154,6 +1321,7 @@ export default function Home() {
                     <p>📋 Comparteix la classificació!</p>
                     <p>💋 Afegeix detalls de cada lligada</p>
                     <p>⭐ Valora cada trobada (1-10)</p>
+                    <p>🏅 Desbloqueja fites i èxits!</p>
                     <div className="mt-2 pt-2 border-t border-purple-200/50 dark:border-purple-800/30">
                       <p className="text-purple-600 dark:text-purple-400 font-bold flex items-center gap-1">
                         🏳️‍🌈 Regla especial: ElRey

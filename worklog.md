@@ -3,7 +3,7 @@
 ## Current Project Status
 
 **Project**: "Qui lliga més aquest estiu?" - Competitive summer hookup leaderboard
-**Status**: Fully functional with enhanced styling, new features, and bug fixes
+**Status**: Fully functional with achievements, sound effects, rank-change arrows, and bug fixes
 **Route**: Single page at `/`
 **Participants**: 11 (Ian, Putraskito, Pol, Rui, Clone, Dani, Max, Debig, Baldo, Roki, ElRey)
 **Exempt from leaderboard**: ElRey (GAY, lliga massa, ens humiliaria) - but CAN increment/decrement
@@ -154,3 +154,45 @@ Stage Summary:
 - Significant styling enhancements (glow animations, flash overlays, shimmer bars, accessibility)
 - 7 new features added (streak badges, avg rating, top rating board, delete ligues, reset dialog, share modal, rating toggle)
 - All changes verified with lint and API testing
+
+---
+
+Task ID: 8
+Agent: Review Agent (Cron) - Round 6
+Task: QA testing, critical bug fixes, new features (achievements, sound, rank-change arrows)
+
+Work Log:
+- **QA Assessment**: Reviewed full 1508-line page.tsx, identified 4 bugs and planned 6 improvements via Plan agent
+- **Critical Bug Fixes**:
+  - **Fixed side effects in state setters** (increment/decrement): Moved API calls, toast notifications, and other side effects OUT of the `setCandidates()` callback. React state setters should be pure functions — having side effects inside them causes double execution in Strict Mode and potential data corruption
+  - **Fixed useEffect missing dependencies**: Added `triggerConfetti` and `addToast` to the confetti useEffect dependency array
+  - **Fixed O(n²) leaderboard recalculation**: Moved `sorted.filter((c) => !EXEMPT_IDS.has(c.id))` computation out of the `.map()` callback — was being recalculated 11 times per render
+  - **Fixed streak count logic**: Replaced the broken "count of last 5 activities that are increments" with a proper consecutive streak counter that sorts by date and counts consecutive increments from the most recent
+- **New Feature: Achievement/Fite System**:
+  - 8 unlockable achievements: Primera Sang (🩸), Hat Trick (🎩), Màquina (🤖), Dobles Dígits (🔥), Llegenda (👑), Tastavides (🌍), Exigent (💎), Varietat (🎯)
+  - Achievements shown as emoji row on candidate cards with tooltip descriptions
+  - "Fites Desbloquejades" showcase section in stats panel showing all unlocked achievements per candidate
+  - Rules section updated with "🏅 Desbloqueja fites i èxits!"
+- **New Feature: Sound Effects**:
+  - Ding sound plays on +1 increment (generated WAV file at `/public/sounds/ding.mp3`)
+  - Sound toggle button (Volume2/VolumeX icon) in header controls
+  - Sound preference persisted in localStorage
+  - Audio element managed via useRef with proper cleanup
+- **New Feature: Rank-Change Arrows (↑↓)**:
+  - Animated green ↑ or red ↓ arrows appear next to leaderboard rank when someone's position changes
+  - Shows number of positions gained/lost (e.g., ↑2)
+  - Tracks previous ranks via useRef, compares on each data fetch
+  - Changes auto-dismiss after 5 seconds
+  - Exempt candidates excluded from rank-change display
+- **Styling Enhancements**:
+  - New lucide icons imported: Volume2, VolumeX, ChevronDown, ChevronRight, Target, Swords, Rocket
+  - Achievements displayed with tooltips for hover descriptions
+  - Achievement showcase in stats with mini avatar + emoji row
+- **Lint**: Passes clean
+- **All APIs verified working**: /api/candidates (200), /api/activity (200), /api/ligues (200)
+
+Stage Summary:
+- 4 critical bugs fixed (side effects in setters, useEffect deps, O(n²) perf, streak logic)
+- 3 major new features (achievement system, sound effects, rank-change arrows)
+- Enhanced visual feedback with animated rank indicators
+- Code quality significantly improved with proper React patterns
