@@ -26,3 +26,14 @@ model ActivityLog {
   value      Int      @default(0)
   createdAt  DateTime @default(now())
 }
+
+model Ligue {
+  id         String   @id @default(cuid())
+  personId   String
+  personName String
+  nom        String   @default("")
+  edat       String   @default("")
+  ubi        String   @default("")
+  rating     Int      @default(0)
+  createdAt  DateTime @default(now())
+}

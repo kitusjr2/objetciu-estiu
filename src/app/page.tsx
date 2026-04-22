@@ -17,7 +17,7 @@ import {
   Star, Zap, Crown, Sparkles,
   Moon, Sun, Share2, Clock,
   ChevronUp, TrendingUp, Medal, Users, Hash,
-  ArrowUp, ArrowDown, Minus, RefreshCw
+  ArrowUp, ArrowDown, Minus, RefreshCw, Copy, X
 } from 'lucide-react'
 
 /* ─── Types ─── */
@@ -162,25 +162,40 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState<string>('')
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [shareText, setShareText] = useState('')
+  // Ligue detail form
+  const [showLigueForm, setShowLigueForm] = useState<string | null>(null) // personId
+  const [ligueNom, setLigueNom] = useState('')
+  const [ligueEdat, setLigueEdat] = useState('')
+  const [ligueUbi, setLigueUbi] = useState('')
+  const [ligueRating, setLigueRating] = useState(0)
+  const [ligues, setLigues] = useState<{id:string;personId:string;personName:string;nom:string;edat:string;ubi:string;rating:number;createdAt:string}[]>([])
+  const [showLigueHistory, setShowLigueHistory] = useState<string | null>(null)
   const toastId = useRef(0)
   const prevTopId = useRef<string | null>(null)
 
-  // Image position adjustments (shift image down to show face)
+  // Image position adjustments (shift image to show face)
   const imagePositionOverrides: Record<string, string> = {
     putraskito: 'center 30%',
+    pol: 'center 15%',
   }
 
   // Fetch data from API
   const fetchData = useCallback(async () => {
     try {
-      const [candRes, actRes] = await Promise.all([
+      const [candRes, actRes, ligRes] = await Promise.all([
         fetch('/api/candidates'),
         fetch('/api/activity'),
+        fetch('/api/ligues'),
       ])
       const candData = await candRes.json()
       const actData = await actRes.json()
+      const ligData = await ligRes.json()
       setCandidates(candData)
       setActivity(actData)
+      setLigues(ligData)
     } catch {
       // fallback: keep current state
     } finally {
@@ -259,6 +274,12 @@ export default function Home() {
         fetch('/api/activity').then(r => r.json()).then(setActivity)
       })
       addToast(`${c.name} +1! 💪`, 'success')
+      // Open ligue detail form for this person
+      setShowLigueForm(id)
+      setLigueNom('')
+      setLigueEdat('')
+      setLigueUbi('')
+      setLigueRating(0)
       return prev.map((p) => p.id === id ? { ...p, lligatCount: newCount } : p)
     })
   }, [addToast])
@@ -291,6 +312,7 @@ export default function Home() {
   }, [editValue, updateCount, candidates, addToast])
 
   const resetAll = useCallback(async () => {
+    setShowResetConfirm(false)
     // Optimistic
     setCandidates((prev) => prev.map((c) => ({ ...c, lligatCount: 0 })))
     try {
@@ -322,9 +344,51 @@ export default function Home() {
     navigator.clipboard.writeText(text).then(() => {
       addToast('Classificació copiada!', 'success')
     }).catch(() => {
-      addToast('No s\'ha pogut copiar', 'info')
+      setShareText(text)
+      setShowShareModal(true)
     })
   }, [candidates, addToast])
+
+  // Submit ligue details
+  const submitLigueDetails = useCallback(async () => {
+    if (!showLigueForm) return
+    const c = candidates.find((c) => c.id === showLigueForm)
+    if (!c) return
+    try {
+      await fetch('/api/ligues', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          personId: c.id,
+          personName: c.name,
+          nom: ligueNom,
+          edat: ligueEdat,
+          ubi: ligueUbi,
+          rating: ligueRating,
+        }),
+      })
+      // Refresh ligues
+      const ligRes = await fetch('/api/ligues')
+      setLigues(await ligRes.json())
+      addToast('Detalls guardats! 📝', 'success')
+    } catch {
+      addToast('Error guardant detalls', 'info')
+    }
+    setShowLigueForm(null)
+    setLigueNom('')
+    setLigueEdat('')
+    setLigueUbi('')
+    setLigueRating(0)
+  }, [showLigueForm, candidates, ligueNom, ligueEdat, ligueUbi, ligueRating, addToast])
+
+  // Skip ligue details
+  const skipLigueDetails = useCallback(() => {
+    setShowLigueForm(null)
+    setLigueNom('')
+    setLigueEdat('')
+    setLigueUbi('')
+    setLigueRating(0)
+  }, [])
 
   // Derived data (exempt participants go to bottom of leaderboard, don't compete for rank)
   const sorted = [...candidates].sort((a, b) => {
@@ -347,6 +411,30 @@ export default function Home() {
     if (i === 2) return '🥉'
     return `${i + 1}`
   }
+
+  // Get last activity for a candidate
+  const getLastActivity = (personId: string): ActivityEntry | null => {
+    return activity.find((a) => a.personId === personId) || null
+  }
+
+  // Check if candidate has a streak (2+ increments in last 5 activities)
+  const hasStreak = (personId: string): boolean => {
+    const recentActivity = activity
+      .filter((a) => a.personId === personId)
+      .slice(0, 5)
+    const incrementCount = recentActivity.filter((a) => a.action === 'increment').length
+    return incrementCount >= 2
+  }
+
+  // Heat level for candidate cards
+  const getHeatClass = (count: number): string => {
+    if (count >= 5) return 'ring-rose-500 shadow-rose-400/50'
+    if (count >= 3) return 'ring-amber-500 shadow-amber-400/50'
+    return ''
+  }
+
+  // Last activity time for footer
+  const lastActivityTime = activity.length > 0 ? timeAgo(activity[0].createdAt) : null
 
   if (loading) {
     return (
@@ -597,12 +685,7 @@ export default function Home() {
                                 {person.name}
                                 {EXEMPT_IDS.has(person.id) && <span className="text-[8px] text-purple-300 font-normal">(exempt)</span>}
                               </p>
-                              {/* Inline counter buttons */}
-                              {EXEMPT_IDS.has(person.id) ? (
-                                <div className="flex items-center justify-center mt-1">
-                                  <span className="text-[10px] text-purple-300/80 italic">🏳️‍🌈 No participa (liga massa)</span>
-                                </div>
-                              ) : (
+                              {/* Inline counter buttons - everyone can increment/decrement */}
                               <div className="flex items-center gap-1 mt-1">
                                 <button
                                   onClick={(e) => { e.stopPropagation(); decrement(person.id) }}
@@ -627,7 +710,6 @@ export default function Home() {
                                   +
                                 </button>
                               </div>
-                              )}
                             </div>
 
                             {/* Crown for #1 */}
@@ -719,6 +801,15 @@ export default function Home() {
                                 <p className="text-[10px] text-gray-400 dark:text-gray-500">{person.nickname}</p>
                                 {EXEMPT_IDS.has(person.id) && <span className="text-[9px] text-purple-400 dark:text-purple-500 font-medium">🏳️‍🌈 EXEMPT</span>}
                               </div>
+                              {/* Ligue history link */}
+                              {ligues.filter((l) => l.personId === person.id).length > 0 && (
+                                <button
+                                  onClick={() => setShowLigueHistory(person.id)}
+                                  className="text-[9px] text-orange-500 dark:text-orange-400 hover:underline mt-0.5 flex items-center gap-0.5"
+                                >
+                                  📖 {ligues.filter((l) => l.personId === person.id).length} lligada{ligues.filter((l) => l.personId === person.id).length !== 1 ? 's' : ''} amb detalls
+                                </button>
+                              )}
                               {/* Progress bar */}
                               {person.lligatCount > 0 && !EXEMPT_IDS.has(person.id) && (
                                 <div className="mt-1 h-1.5 w-full bg-gray-200/60 dark:bg-gray-700/40 rounded-full overflow-hidden">
@@ -733,9 +824,6 @@ export default function Home() {
                             </div>
 
                             {/* Count + buttons */}
-                            {EXEMPT_IDS.has(person.id) ? (
-                              <span className="text-[10px] text-purple-400 dark:text-purple-500 italic flex-shrink-0">No participa</span>
-                            ) : (
                             <div className="flex items-center gap-1 flex-shrink-0">
                               <button
                                 onClick={() => decrement(person.id)}
@@ -762,7 +850,6 @@ export default function Home() {
                                 +
                               </button>
                             </div>
-                            )}
                           </motion.div>
                         )
                       })}
@@ -929,7 +1016,7 @@ export default function Home() {
                         🏳️‍🌈 Regla especial: ElRey
                       </p>
                       <p className="text-purple-500/80 dark:text-purple-400/70 mt-0.5">
-                        ElRey queda <strong>exempt</strong> del joc. És GAY i lliga massa, ens humiliaria a la resta. 🫡
+                        ElRey queda <strong>exempt</strong> de la classificació. És GAY i lliga massa, ens humiliaria a la resta. 🫡 Però pot sumar les seves lligues igualment!
                       </p>
                     </div>
                   </div>
@@ -938,6 +1025,236 @@ export default function Home() {
             </div>
           </motion.div>
         </main>
+
+        {/* ─── Ligue Detail Form Modal ─── */}
+        <AnimatePresence>
+          {showLigueForm && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+              onClick={skipLigueDetails}
+            >
+              <motion.div
+                initial={{ scale: 0.8, y: 30 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.8, y: 30 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-md"
+              >
+                <Card className="bg-white dark:bg-gray-900 shadow-2xl border-2 border-orange-200 dark:border-orange-800 overflow-hidden">
+                  <div className="h-2 bg-gradient-to-r from-orange-400 via-rose-400 to-pink-500" />
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-orange-400">
+                          <img
+                            src={candidates.find((c) => c.id === showLigueForm)?.photo || ''}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-gray-800 dark:text-gray-200 text-sm">
+                            Detalls de la lligada 💋
+                          </h3>
+                          <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                            {candidates.find((c) => c.id === showLigueForm)?.name} ha lligat! Explica'ns...
+                          </p>
+                        </div>
+                      </div>
+                      <button onClick={skipLigueDetails} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Nom */}
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 flex items-center gap-1.5 mb-1">
+                          <Heart className="w-3 h-3 text-rose-400" /> Nom de la noia
+                        </label>
+                        <Input
+                          value={ligueNom}
+                          onChange={(e) => setLigueNom(e.target.value)}
+                          placeholder="Com es diu? (opcional)"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+
+                      {/* Edat */}
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 flex items-center gap-1.5 mb-1">
+                          <Users className="w-3 h-3 text-amber-400" /> Edat
+                        </label>
+                        <Input
+                          value={ligueEdat}
+                          onChange={(e) => setLigueEdat(e.target.value)}
+                          placeholder="Quants anys tenia? (opcional)"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+
+                      {/* Ubi */}
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 flex items-center gap-1.5 mb-1">
+                          <Hash className="w-3 h-3 text-cyan-400" /> Ubicació
+                        </label>
+                        <Input
+                          value={ligueUbi}
+                          onChange={(e) => setLigueUbi(e.target.value)}
+                          placeholder="On va ser? (opcional)"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+
+                      {/* Rating 1-10 */}
+                      <div>
+                        <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 flex items-center gap-1.5 mb-2">
+                          <Star className="w-3 h-3 text-amber-400" /> Valoració (1-10)
+                        </label>
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: 10 }, (_, i) => i + 1).map((val) => (
+                            <button
+                              key={val}
+                              onClick={() => setLigueRating(val)}
+                              className={`w-8 h-8 rounded-lg text-xs font-bold transition-all duration-200 ${
+                                val <= ligueRating
+                                  ? 'bg-gradient-to-b from-amber-400 to-orange-500 text-white shadow-md scale-105'
+                                  : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700'
+                              }`}
+                            >
+                              {val}
+                            </button>
+                          ))}
+                        </div>
+                        {ligueRating > 0 && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <div className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                              <motion.div
+                                className="h-full rounded-full bg-gradient-to-r from-amber-400 to-rose-500"
+                                initial={{ width: 0 }}
+                                animate={{ width: `${ligueRating * 10}%` }}
+                                transition={{ duration: 0.3 }}
+                              />
+                            </div>
+                            <span className="text-xs font-bold text-amber-600 dark:text-amber-400">{ligueRating}/10</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 mt-4">
+                      <Button
+                        onClick={submitLigueDetails}
+                        className="flex-1 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-bold"
+                      >
+                        Guardar detalls 💾
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={skipLigueDetails}
+                        className="text-gray-500 dark:text-gray-400"
+                      >
+                        Saltar
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ─── Ligue History Modal ─── */}
+        <AnimatePresence>
+          {showLigueHistory && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+              onClick={() => setShowLigueHistory(null)}
+            >
+              <motion.div
+                initial={{ scale: 0.8, y: 30 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.8, y: 30 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-lg max-h-[80vh] overflow-y-auto"
+              >
+                <Card className="bg-white dark:bg-gray-900 shadow-2xl border-2 border-orange-200 dark:border-orange-800 overflow-hidden">
+                  <div className="h-2 bg-gradient-to-r from-cyan-400 via-teal-400 to-emerald-400" />
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-orange-400">
+                          <img
+                            src={candidates.find((c) => c.id === showLigueHistory)?.photo || ''}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <h3 className="font-bold text-gray-800 dark:text-gray-200">
+                          Historial de {candidates.find((c) => c.id === showLigueHistory)?.name} 📖
+                        </h3>
+                      </div>
+                      <button onClick={() => setShowLigueHistory(null)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    {ligues.filter((l) => l.personId === showLigueHistory).length === 0 ? (
+                      <p className="text-sm text-gray-400 dark:text-gray-500 italic text-center py-4">
+                        Encara no hi ha detalls de cap lligada... 😴
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {ligues.filter((l) => l.personId === showLigueHistory).map((ligue) => (
+                          <div key={ligue.id} className="p-3 rounded-xl bg-gradient-to-r from-orange-50/50 to-rose-50/50 dark:from-orange-900/10 dark:to-rose-900/10 border border-orange-100/50 dark:border-orange-800/30">
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              {ligue.nom && (
+                                <div>
+                                  <span className="text-gray-400 dark:text-gray-500">Nom:</span>
+                                  <p className="font-semibold text-gray-700 dark:text-gray-300">{ligue.nom}</p>
+                                </div>
+                              )}
+                              {ligue.edat && (
+                                <div>
+                                  <span className="text-gray-400 dark:text-gray-500">Edat:</span>
+                                  <p className="font-semibold text-gray-700 dark:text-gray-300">{ligue.edat}</p>
+                                </div>
+                              )}
+                              {ligue.ubi && (
+                                <div>
+                                  <span className="text-gray-400 dark:text-gray-500">Ubi:</span>
+                                  <p className="font-semibold text-gray-700 dark:text-gray-300">{ligue.ubi}</p>
+                                </div>
+                              )}
+                              {ligue.rating > 0 && (
+                                <div>
+                                  <span className="text-gray-400 dark:text-gray-500">Valoració:</span>
+                                  <div className="flex items-center gap-1">
+                                    {Array.from({ length: 10 }, (_, i) => (
+                                      <span key={i} className={`text-[10px] ${i < ligue.rating ? 'text-amber-400' : 'text-gray-300 dark:text-gray-700'}`}>★</span>
+                                    ))}
+                                    <span className="font-bold text-amber-500 ml-1">{ligue.rating}/10</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">{timeAgo(ligue.createdAt)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ─── Footer ─── */}
         <footer className="relative z-10 mt-auto py-3 px-4 text-center border-t border-orange-100/30 dark:border-gray-800/30 bg-white/30 dark:bg-gray-900/30 backdrop-blur-sm">

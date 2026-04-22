@@ -1,0 +1,32 @@
+import { db } from '@/lib/db'
+import { NextRequest } from 'next/server'
+
+export async function GET() {
+  const ligues = await db.ligue.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  })
+  return Response.json(ligues)
+}
+
+export async function POST(request: NextRequest) {
+  const body = await request.json()
+  const { personId, personName, nom, edat, ubi, rating } = body
+
+  if (!personId || !personName) {
+    return Response.json({ error: 'personId and personName are required' }, { status: 400 })
+  }
+
+  const ligue = await db.ligue.create({
+    data: {
+      personId,
+      personName,
+      nom: nom || '',
+      edat: edat || '',
+      ubi: ubi || '',
+      rating: rating || 0,
+    },
+  })
+
+  return Response.json(ligue, { status: 201 })
+}
