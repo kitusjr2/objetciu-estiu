@@ -113,11 +113,56 @@ Stage Summary:
 - Code reduced from 1676 to ~750 lines while keeping all functionality
 - Lint passes, APIs work, page renders correctly
 
+---
+
+Task ID: 10
+Agent: Review Agent (Cron) - Round 8
+Task: QA testing, styling improvements, and new features
+
+Work Log:
+- **QA Testing**: Verified all 3 APIs working (candidates, activity, ligues), page compiles and serves 200
+- **Styling improvements**:
+  - Floating animated background blobs (3 layers with different speeds)
+  - Enhanced loading screen with ping animation
+  - Button micro-interactions (active press scale effect)
+  - Improved toast notifications (rounded-2xl, backdrop-blur, border)
+  - Enhanced card hover shadows (shadow-md transitions)
+  - Animated RefreshCw icon on leaderboard header
+  - Better search input focus states
+  - Achievement emoji hover scale effect
+  - Leaderboard #1 avatar shadow glow
+  - Modal entrance animations (zoom-in-95, slide-in-from-bottom)
+  - Rivalries section with "EN DIRECTE" badge
+  - Stats cards with hover shadow effect
+- **New features added**:
+  - **Profile Modal**: Click any candidate photo to see detailed profile with stats (ligues, rating, streak), achievements, recent activity, ligue details, and quick actions (+1 Lligada, Detalls)
+  - **List View Toggle**: Switch between grid view (photo cards) and list view (compact rows) for candidates section
+  - **Weekly Stats**: Shows lligues count this week and top performer for the week in stats panel
+  - **Motivational Quotes**: Random Catalan motivational quote in header (refreshes on page load)
+  - **Eye icon on hover**: Shows eye icon when hovering over candidate cards to indicate they're clickable for profile
+  - **Badge component**: Used shadcn/ui Badge component for activity count, rivalry "EN DIRECTE" badge, and EXEMPT badge in list view
+  - **Info icon**: Replaced Hash icon with Info icon in rules section
+  - **PartyPopper icon**: Added to podium section header
+  - **MessageCircle icon**: Replaced 📖 with MessageCircle for ligue history button
+  - **Activity icon**: Replaced Clock with Activity icon for timeline toggle
+- **CSS additions**:
+  - `animate-float-slow`, `animate-float-medium`, `animate-float-fast` for background blobs
+  - `badge-pulse` animation
+  - `modal-overlay-in` animation
+  - Button active press effect (scale 0.95)
+- **Lint**: Passes clean
+- **API**: All 3 APIs verified working
+
+Stage Summary:
+- Comprehensive styling overhaul with animated backgrounds, micro-interactions, and enhanced visual feedback
+- 5 new features (profile modal, list view toggle, weekly stats, motivational quotes, eye-on-hover)
+- Code stable at ~640 lines, lint-clean, all APIs functional
+- Sandbox OOM issue persists (infrastructure constraint)
+
 ## Unresolved Issues / Risks
 
 - **Sandbox memory**: Dev server gets OOM-killed periodically by sandbox cgroup limits
   - Workaround: Server auto-restarts, page compiles and serves on first request
-  - Production build works but also gets killed after ~15s
   - This is an infrastructure constraint, not a code bug
 - No authentication - anyone can modify counts (by design)
 - Auto-refresh is polling-based (10s interval)
@@ -127,8 +172,8 @@ Stage Summary:
 ## Priority Recommendations for Next Phase
 
 - Investigate WebSocket for real-time updates (reduces polling overhead)
-- Add "undo last action" button
 - Make exempt status configurable via admin UI
-- Add search/filter for candidates
-- Add weekly/monthly stats view
+- Add ligue detail time-based filtering (this week, this month)
+- Add drag-and-drop candidate reordering
+- Consider adding confetti customization
 - Consider upgrading sandbox memory allocation

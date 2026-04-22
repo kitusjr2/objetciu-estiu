@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@/components/ui/tooltip'
@@ -16,6 +17,7 @@ import {
   Moon, Sun, Share2, Clock, ChevronUp, Users, Hash,
   ArrowUp, ArrowDown, RefreshCw, X, Trash2, TrendingUp, MapPin, Calendar, Award,
   Volume2, VolumeX, Target, Timer, Swords, Gauge, Undo2, Search,
+  PartyPopper, Activity, Eye, ChevronDown, ChevronRight, Info, MessageCircle,
 } from 'lucide-react'
 
 /* ─── Types ─── */
@@ -35,6 +37,17 @@ const ACHIEVEMENTS = [
   { id: 'god', name: 'Déu', emoji: '⚡', desc: '50 lligades', min: 50 },
 ]
 
+const MOTIVATIONAL_QUOTES = [
+  "La nit és jove i tu també 🌙",
+  "Qui no arrisca no lliga 💃",
+  "Aquest estiu és TEU 🔥",
+  "La sort ajuda els atrevits 🎲",
+  "Cada lligada compta 📊",
+  "El veritable campió no es rendeix mai 💪",
+  "Avui pot ser EL dia 🌟",
+  "Fes que compti! 🥂",
+]
+
 function timeAgo(d: string): string {
   const s = Math.floor((Date.now() - new Date(d).getTime()) / 1000)
   if (s < 60) return 'ara mateix'; const m = Math.floor(s / 60)
@@ -52,7 +65,15 @@ function getMotivation(t: number): string {
   return 'LEGENDARI! 👑🏆🎊'
 }
 
-const dk = (c: string) => c ? `dark:bg-stone-${c}` : ''
+function getDayLabel(dateStr: string): string {
+  const d = new Date(dateStr)
+  const now = new Date()
+  const diff = Math.floor((now.getTime() - d.getTime()) / 86400000)
+  if (diff === 0) return 'Avui'
+  if (diff === 1) return 'Ahir'
+  if (diff < 7) return `fa ${diff}d`
+  return d.toLocaleDateString('ca-ES', { day: 'numeric', month: 'short' })
+}
 
 export default function Home() {
   const [candidates, setCandidates] = useState<Candidate[]>([])
@@ -79,6 +100,9 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('')
   const [ligueHintId, setLigueHintId] = useState<string | null>(null)
   const [hasLastAction, setHasLastAction] = useState(false)
+  const [activeTab, setActiveTab] = useState<'grid' | 'list'>('grid')
+  const [showProfileModal, setShowProfileModal] = useState<string | null>(null)
+  const [quote] = useState(() => MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)])
   const prevRanks = useRef<Record<string, number>>({})
   const toastId = useRef(0)
   const prevTopId = useRef<string | null>(null)
@@ -159,7 +183,7 @@ export default function Home() {
   const resetAll = useCallback(async () => {
     setShowResetConfirm(false); setCandidates(p => p.map(c => ({ ...c, lligatCount: 0 })))
     await Promise.all(candidates.map(c => fetch(`/api/candidates/${c.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lligatCount: 0 }) })))
-    await fetch('/api/activity', { method: 'DELETE' }) // Bug fix: clear stale activity logs
+    await fetch('/api/activity', { method: 'DELETE' })
     setActivity([]); lastActionRef.current = null; setHasLastAction(false)
     addToast('Reiniciat!', 'info')
   }, [candidates, addToast])
@@ -218,53 +242,80 @@ export default function Home() {
     return candidates.filter(c => c.name.toLowerCase().includes(q) || c.nickname.toLowerCase().includes(q))
   }, [candidates, searchQuery])
 
+  // Weekly stats
+  const weeklyStats = useMemo(() => {
+    const now = Date.now()
+    const weekAgo = now - 7 * 86400000
+    const weekActivity = activity.filter(a => a.action === 'increment' && new Date(a.createdAt).getTime() > weekAgo)
+    const perPerson: Record<string, number> = {}
+    weekActivity.forEach(a => { perPerson[a.personId] = (perPerson[a.personId] || 0) + 1 })
+    const sorted = Object.entries(perPerson).sort((a, b) => b[1] - a[1])
+    return { total: weekActivity.length, top: sorted[0] ? { id: sorted[0][0], count: sorted[0][1] } : null }
+  }, [activity])
+
   const [summerDays, setSummerDays] = useState('')
   useEffect(() => { const end = new Date('2026-09-22'); const u = () => { const d = Math.floor((end.getTime() - Date.now()) / 86400000); const h = Math.floor(((end.getTime() - Date.now()) % 86400000) / 3600000); setSummerDays(`${d}d ${h}h`) }; u(); const iv = setInterval(u, 60000); return () => clearInterval(iv) }, [])
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 dark:from-stone-950 dark:via-stone-900 dark:to-stone-950"><div className="w-10 h-10 animate-spin"><Flame className="w-10 h-10 text-orange-500" /></div></div>
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 dark:from-stone-950 dark:via-stone-900 dark:to-stone-950">
+      <div className="flex flex-col items-center gap-3">
+        <div className="relative">
+          <div className="w-14 h-14 animate-spin"><Flame className="w-14 h-14 text-orange-500" /></div>
+          <div className="absolute inset-0 animate-ping opacity-20"><Flame className="w-14 h-14 text-orange-500" /></div>
+        </div>
+        <p className="text-sm text-gray-400 dark:text-stone-500 animate-pulse">Carregant...</p>
+      </div>
+    </div>
+  )
 
-  const hdrBtn = "bg-white/60 dark:bg-stone-800/60 backdrop-blur-sm border-orange-200 dark:border-stone-700 gap-1"
+  const hdrBtn = "bg-white/60 dark:bg-stone-800/60 backdrop-blur-sm border-orange-200 dark:border-stone-700 gap-1 hover:bg-white/80 dark:hover:bg-stone-700/60 transition-all duration-200"
 
   return (
     <TooltipProvider delayDuration={300}>
       <div className={`min-h-screen flex flex-col relative transition-colors duration-500 ${darkMode ? 'bg-gradient-to-br from-stone-950 via-stone-900 to-stone-950' : 'bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50'}`}>
+        {/* Background decoration */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-          <div className={`absolute -top-40 -right-40 w-96 h-96 rounded-full blur-3xl ${darkMode ? 'bg-orange-500/5' : 'bg-orange-200/20'}`} />
-          <div className={`absolute top-1/3 -left-20 w-72 h-72 rounded-full blur-3xl ${darkMode ? 'bg-yellow-500/5' : 'bg-yellow-200/20'}`} />
-          <div className={`absolute -bottom-20 right-1/4 w-80 h-80 rounded-full blur-3xl ${darkMode ? 'bg-rose-500/5' : 'bg-rose-200/15'}`} />
+          <div className={`absolute -top-40 -right-40 w-96 h-96 rounded-full blur-3xl animate-float-slow ${darkMode ? 'bg-orange-500/5' : 'bg-orange-200/20'}`} />
+          <div className={`absolute top-1/3 -left-20 w-72 h-72 rounded-full blur-3xl animate-float-medium ${darkMode ? 'bg-yellow-500/5' : 'bg-yellow-200/20'}`} />
+          <div className={`absolute -bottom-20 right-1/4 w-80 h-80 rounded-full blur-3xl animate-float-fast ${darkMode ? 'bg-rose-500/5' : 'bg-rose-200/15'}`} />
         </div>
 
-        {/* Enhanced Confetti */}
-        {showConfetti && <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">{Array.from({ length: 40 }).map((_, i) => <div key={i} className="absolute animate-confetti" style={{ left: `${Math.random()*100}%`, top: '-10px', width: 8+Math.random()*6, height: 8+Math.random()*6, backgroundColor: ['#f97316','#ef4444','#ec4899','#eab308','#22c55e'][i%5], borderRadius: Math.random()>0.5?'50%':'2px', '--confetti-delay': `${Math.random()*1.5}s`, '--confetti-duration': `${2.5+Math.random()*2}s` } as React.CSSProperties} />)}</div>}
+        {/* Confetti */}
+        {showConfetti && <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">{Array.from({ length: 50 }).map((_, i) => <div key={i} className="absolute animate-confetti" style={{ left: `${Math.random()*100}%`, top: '-10px', width: 8+Math.random()*8, height: 8+Math.random()*8, backgroundColor: ['#f97316','#ef4444','#ec4899','#eab308','#22c55e','#a855f7','#06b6d4'][i%7], borderRadius: Math.random()>0.5?'50%':'2px', '--confetti-delay': `${Math.random()*1.5}s`, '--confetti-duration': `${2.5+Math.random()*2}s` } as React.CSSProperties} />)}</div>}
 
         {/* Toasts */}
         <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">{toasts.map(t => (
-          <div key={t.id} className={`px-4 py-3 rounded-xl shadow-xl text-sm font-medium flex items-center gap-2 animate-in fade-in slide-in-from-right ${t.type==='success'?'bg-green-500/90 text-white':t.type==='warning'?'bg-amber-500/90 text-white':'bg-orange-500/90 text-white'}`}>
+          <div key={t.id} className={`px-4 py-3 rounded-2xl shadow-2xl text-sm font-medium flex items-center gap-2 animate-in fade-in slide-in-from-right backdrop-blur-md border border-white/20 ${t.type==='success'?'bg-green-500/90 text-white':t.type==='warning'?'bg-amber-500/90 text-white':'bg-orange-500/90 text-white'}`}>
             {t.type==='success'?<Star className="w-4 h-4"/>:t.type==='warning'?<Trophy className="w-4 h-4"/>:<Zap className="w-4 h-4"/>} {t.message}
           </div>
         ))}</div>
 
         {/* HEADER */}
-        <header className="relative z-10 pt-5 sm:pt-7 pb-3 px-4">
+        <header className="relative z-10 pt-4 sm:pt-6 pb-3 px-4">
           <div className="text-center max-w-5xl mx-auto">
-            <div className="flex items-center justify-center gap-2 sm:gap-3 mb-1.5">
+            <div className="flex items-center justify-center gap-2 sm:gap-3 mb-1">
               <Flame className="w-6 h-6 sm:w-8 sm:h-8 text-orange-500 animate-pulse" />
               <h1 className="text-xl sm:text-3xl md:text-5xl font-extrabold bg-gradient-to-r from-orange-600 via-rose-500 to-pink-500 bg-clip-text text-transparent tracking-tight">Qui lliga més aquest estiu?</h1>
               <Flame className="w-6 h-6 sm:w-8 sm:h-8 text-orange-500 animate-pulse" />
             </div>
-            <p className="text-xs sm:text-sm text-gray-500 dark:text-stone-400 mb-3 italic">&ldquo;El que compta és el nombre&rdquo; 🔥</p>
+            <p className="text-[10px] sm:text-xs text-gray-400 dark:text-stone-500 mb-2 italic">&ldquo;{quote}&rdquo;</p>
             <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
-              <div className={`inline-flex items-center gap-2 px-4 py-2 backdrop-blur-md rounded-full shadow-lg border relative overflow-hidden ${darkMode?'bg-stone-800/70 border-stone-700':'bg-white/70 border-orange-100'}`}>
+              {/* Total badge */}
+              <div className={`inline-flex items-center gap-2 px-4 py-2 backdrop-blur-md rounded-2xl shadow-lg border relative overflow-hidden ${darkMode?'bg-stone-800/70 border-stone-700':'bg-white/70 border-orange-100'}`}>
                 <Trophy className="w-5 h-5 text-amber-500" /><span className="font-extrabold text-lg">{totalLligues}</span><span className="text-sm text-gray-500">lligues</span>
                 <div className="absolute inset-0 animate-shimmer-sweep pointer-events-none" />
               </div>
-              <div className="flex items-center gap-1 text-[10px] text-orange-500 font-medium"><Timer className="w-3 h-3" />Estiu: {summerDays}</div>
+              {/* Summer countdown */}
+              <div className="flex items-center gap-1 text-[10px] text-orange-500 font-medium bg-orange-50/50 dark:bg-orange-900/10 px-2 py-1 rounded-full">
+                <Timer className="w-3 h-3" />Estiu: {summerDays}
+              </div>
+              {/* Action buttons */}
               <div className="flex items-center gap-1.5">
                 <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={undoLast} disabled={!hasLastAction} aria-label="Desfer última acció" className={hdrBtn}><Undo2 className="w-3.5 h-3.5" /></Button></TooltipTrigger><TooltipContent>Desfer</TooltipContent></Tooltip>
                 <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={shareSummary} aria-label="Compartir resum" className={hdrBtn}><Share2 className="w-3.5 h-3.5" /><span className="hidden sm:inline">Compartir</span></Button></TooltipTrigger><TooltipContent>Compartir</TooltipContent></Tooltip>
-                <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => setShowTimeline(!showTimeline)} aria-label="Mostrar activitat" className={`${hdrBtn} ${showTimeline?'bg-orange-100 dark:bg-orange-900/30':''}`}><Clock className="w-3.5 h-3.5" /></Button></TooltipTrigger><TooltipContent>Activitat</TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => setShowTimeline(!showTimeline)} aria-label="Mostrar activitat" className={`${hdrBtn} ${showTimeline?'bg-orange-100 dark:bg-orange-900/30':''}`}><Activity className="w-3.5 h-3.5" /></Button></TooltipTrigger><TooltipContent>Activitat</TooltipContent></Tooltip>
                 <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => setDarkMode(!darkMode)} aria-label={darkMode?'Mode clar':'Mode fosc'} className={hdrBtn}>{darkMode?<Sun className="w-3.5 h-3.5"/>:<Moon className="w-3.5 h-3.5"/>}</Button></TooltipTrigger><TooltipContent>{darkMode?'Clar':'Fosc'}</TooltipContent></Tooltip>
-                <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => setShowResetConfirm(true)} aria-label="Reiniciar comptadors" className={`${hdrBtn} hover:bg-red-50`}><RotateCcw className="w-3.5 h-3.5" /></Button></TooltipTrigger><TooltipContent>Reiniciar</TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => setShowResetConfirm(true)} aria-label="Reiniciar comptadors" className={`${hdrBtn} hover:bg-red-50 dark:hover:bg-red-900/20`}><RotateCcw className="w-3.5 h-3.5" /></Button></TooltipTrigger><TooltipContent>Reiniciar</TooltipContent></Tooltip>
                 <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => setSoundEnabled(!soundEnabled)} aria-label={soundEnabled?'Silenciar so':'Activar so'} className={hdrBtn}>{soundEnabled?<Volume2 className="w-3.5 h-3.5"/>:<VolumeX className="w-3.5 h-3.5"/>}</Button></TooltipTrigger><TooltipContent>{soundEnabled?'Silenciar':'So'}</TooltipContent></Tooltip>
               </div>
             </div>
@@ -273,13 +324,13 @@ export default function Home() {
 
         {/* TIMELINE */}
         {showTimeline && activity.length > 0 && (
-          <div className="relative z-10 px-4 max-w-7xl mx-auto w-full">
+          <div className="relative z-10 px-4 max-w-7xl mx-auto w-full animate-in slide-in-from-top duration-300">
             <Card className="bg-white/70 dark:bg-stone-900/70 backdrop-blur-md border-orange-100/80 dark:border-stone-800/80 shadow-lg overflow-hidden mb-4">
               <div className="h-1 bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-400" />
               <CardContent className="p-3">
-                <div className="flex items-center gap-2 mb-2"><Clock className="w-4 h-4 text-cyan-500" /><h3 className="text-sm font-bold text-gray-700 dark:text-stone-300">Activitat</h3><span className="text-[10px] text-gray-400">{activity.length}</span><Button variant="ghost" size="sm" onClick={() => setShowTimeline(false)} aria-label="Tancar" className="ml-auto h-6 w-6 p-0"><ChevronUp className="w-3.5 h-3.5" /></Button></div>
+                <div className="flex items-center gap-2 mb-2"><Clock className="w-4 h-4 text-cyan-500" /><h3 className="text-sm font-bold text-gray-700 dark:text-stone-300">Activitat</h3><Badge variant="secondary" className="text-[9px] h-4">{activity.length}</Badge><Button variant="ghost" size="sm" onClick={() => setShowTimeline(false)} aria-label="Tancar" className="ml-auto h-6 w-6 p-0"><ChevronUp className="w-3.5 h-3.5" /></Button></div>
                 <div className="max-h-36 overflow-y-auto custom-scrollbar space-y-1">{activity.slice(0, 30).map(e => (
-                  <div key={e.id} className={`flex items-center gap-2 text-xs py-1 px-2 rounded-lg ${e.action==='increment'?'bg-green-50/60 dark:bg-green-900/15 text-green-700 dark:text-green-400':'bg-red-50/60 dark:bg-red-900/15 text-red-600 dark:text-red-400'}`}>
+                  <div key={e.id} className={`flex items-center gap-2 text-xs py-1 px-2 rounded-lg transition-colors ${e.action==='increment'?'bg-green-50/60 dark:bg-green-900/15 text-green-700 dark:text-green-400':'bg-red-50/60 dark:bg-red-900/15 text-red-600 dark:text-red-400'}`}>
                     {e.action==='increment'?<ArrowUp className="w-3 h-3"/>:<ArrowDown className="w-3 h-3"/>}
                     <span className="font-medium">{e.personName}</span><span>{e.action==='increment'?'+1':'-1'}</span><span className="text-[10px]">→ {e.value}</span><span className="ml-auto text-[10px] opacity-60">{timeAgo(e.createdAt)}</span>
                   </div>
@@ -297,45 +348,96 @@ export default function Home() {
               <Card className="bg-white/70 dark:bg-stone-900/70 backdrop-blur-md border-orange-100/80 dark:border-stone-800/80 shadow-xl overflow-hidden">
                 <div className="h-1.5 bg-gradient-to-r from-orange-400 via-rose-400 to-pink-500" />
                 <CardContent className="p-4 sm:p-5">
-                  <div className="flex items-center gap-2 mb-3"><Heart className="w-5 h-5 text-rose-500" /><h2 className="text-lg sm:text-xl font-bold text-gray-800 dark:text-stone-200">Els Candidates</h2><span className="ml-auto text-xs text-gray-400 bg-gray-100 dark:bg-stone-800 px-2 py-0.5 rounded-full">{candidates.length}</span></div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Heart className="w-5 h-5 text-rose-500" />
+                    <h2 className="text-lg sm:text-xl font-bold text-gray-800 dark:text-stone-200">Els Candidates</h2>
+                    <span className="ml-auto text-xs text-gray-400 bg-gray-100 dark:bg-stone-800 px-2 py-0.5 rounded-full">{candidates.length}</span>
+                    {/* View toggle */}
+                    <div className="flex items-center gap-0.5 ml-2 bg-gray-100 dark:bg-stone-800 rounded-lg p-0.5">
+                      <button onClick={() => setActiveTab('grid')} className={`p-1 rounded text-[10px] transition-all ${activeTab==='grid'?'bg-white dark:bg-stone-700 shadow-sm text-orange-600 dark:text-orange-400':'text-gray-400'}`}>▦</button>
+                      <button onClick={() => setActiveTab('list')} className={`p-1 rounded text-[10px] transition-all ${activeTab==='list'?'bg-white dark:bg-stone-700 shadow-sm text-orange-600 dark:text-orange-400':'text-gray-400'}`}>☰</button>
+                    </div>
+                  </div>
                   <Separator className="mb-3 bg-orange-100 dark:bg-stone-700" />
-                  <div className="relative mb-3"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" /><Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Cercar per nom..." className="h-8 pl-8 text-xs bg-white/50 dark:bg-stone-800/50 border-orange-100 dark:border-stone-700" />{searchQuery && <button onClick={() => setSearchQuery('')} aria-label="Netejar cerca" className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X className="w-3 h-3" /></button>}</div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-2.5">
-                    {filteredCandidates.map((person, idx) => {
-                      const rank = sorted.findIndex(s => s.id === person.id)
-                      const isExempt = EXEMPT_IDS.has(person.id)
-                      const streak = getStreak(person.id); const avgR = getAvgRating(person.id)
-                      const achs = ACHIEVEMENTS.filter(a => person.lligatCount >= a.min)
-                      return (
-                        <div key={person.id} className={`relative group rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.03] hover:-translate-y-0.5 candidate-card-hover animate-card-entrance ${isExempt?'ring-2 ring-purple-400/60 dark:ring-purple-500/40 pulse-glow-purple':rank===0&&person.lligatCount>0?'ring-2 ring-amber-400 dark:ring-amber-500 shadow-lg shadow-amber-200/40 dark:shadow-amber-500/20 pulse-glow-amber':person.lligatCount>0?'ring-2 ring-green-400/60 dark:ring-green-500/40 shadow-md':'ring-1 ring-gray-200/80 dark:ring-stone-700/80'}`} style={{ animationDelay: `${idx*50}ms` }}>
-                          <div className="aspect-square relative">
-                            <img src={person.photo} alt={person.name} style={IMG_POS[person.id]?{objectPosition:IMG_POS[person.id]}:undefined} className={`w-full h-full object-cover transition-all duration-500 ${isExempt?'brightness-75 grayscale-[30%]':rank===0&&person.lligatCount>0?'brightness-110 saturate-150':person.lligatCount>0?'brightness-105 saturate-120':'brightness-90'}`} />
-                            {isExempt && <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold shadow-lg bg-purple-500/90 text-white">🏳️‍🌈 EXEMPT</div>}
-                            {person.lligatCount > 0 && !isExempt && <div className={`absolute top-1.5 left-1.5 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-lg ${rank===0?'bg-amber-400 text-amber-900':rank===1?'bg-gray-300 text-gray-700':rank===2?'bg-orange-400 text-orange-900':'bg-black/50 text-white'}`}>{rank+1}</div>}
-                            <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
-                              {streak>=2 && <div className={`flex items-center justify-center rounded-full text-[8px] font-black shadow-lg ${streak>=5?'w-6 h-6 bg-gradient-to-br from-red-500 to-orange-600 text-white':'w-5 h-5 bg-gradient-to-br from-amber-400 to-orange-500 text-white'}`}>🔥</div>}
-                              <div className={`px-2 py-0.5 rounded-full text-sm font-extrabold shadow-lg ${person.lligatCount>0?'bg-green-500 text-white':'bg-black/40 text-white/70'}`}>{person.lligatCount}</div>
-                            </div>
-                            {rank===0&&person.lligatCount>0&&!isExempt && <Crown className="absolute -top-0 left-1/2 -translate-x-1/2 -translate-y-1 w-6 h-6 text-amber-400 drop-shadow-lg" />}
-                            <div className="absolute bottom-0 left-0 right-0 p-1.5 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
-                              <p className="text-xs sm:text-sm font-bold text-white truncate">{person.name} {isExempt&&<span className="text-[8px] text-purple-300">(exempt)</span>}</p>
-                              <p className="text-[9px] text-white/60 truncate">{person.nickname}</p>
-                              {achs.length>0 && <div className="flex items-center gap-0.5 mt-0.5 flex-wrap">{achs.map(a => <Tooltip key={a.id}><TooltipTrigger asChild><span className="text-[10px]">{a.emoji}</span></TooltipTrigger><TooltipContent side="bottom" className="text-xs"><strong>{a.name}</strong>: {a.desc}</TooltipContent></Tooltip>)}</div>}
-                              {avgR>0 && <p className="text-[8px] text-amber-300/80 flex items-center gap-0.5 mt-0.5"><Star className="w-2.5 h-2.5" /> {avgR.toFixed(1)}</p>}
-                              <div className="flex items-center gap-1 mt-1">
-                                <button onClick={e => { e.stopPropagation(); decrement(person.id) }} aria-label={`Disminuir ${person.name}`} className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${person.lligatCount>0?'bg-red-500/80 hover:bg-red-600 text-white':'bg-white/20 text-white/40'}`}>−</button>
-                                <button onClick={e => { e.stopPropagation(); setEditingId(person.id); setEditValue(String(person.lligatCount)) }} className="flex-1 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs font-bold">{person.lligatCount} lligat{person.lligatCount!==1?'s':''}</button>
-                                <button onClick={e => { e.stopPropagation(); increment(person.id) }} aria-label={`Incrementar ${person.name}`} className="w-8 h-8 rounded-full bg-green-500/80 hover:bg-green-600 text-white text-xs font-bold flex items-center justify-center">+</button>
+                  {/* Search */}
+                  <div className="relative mb-3"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" /><Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Cercar per nom o àlies..." className="h-8 pl-8 text-xs bg-white/50 dark:bg-stone-800/50 border-orange-100 dark:border-stone-700 focus:border-orange-300 dark:focus:border-orange-700" />{searchQuery && <button onClick={() => setSearchQuery('')} aria-label="Netejar cerca" className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X className="w-3 h-3" /></button>}</div>
+
+                  {activeTab === 'grid' ? (
+                    /* GRID VIEW */
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-2.5">
+                      {filteredCandidates.map((person, idx) => {
+                        const rank = sorted.findIndex(s => s.id === person.id)
+                        const isExempt = EXEMPT_IDS.has(person.id)
+                        const streak = getStreak(person.id); const avgR = getAvgRating(person.id)
+                        const achs = ACHIEVEMENTS.filter(a => person.lligatCount >= a.min)
+                        return (
+                          <div key={person.id} className={`relative group rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.03] hover:-translate-y-1 candidate-card-hover animate-card-entrance ${isExempt?'ring-2 ring-purple-400/60 dark:ring-purple-500/40 pulse-glow-purple':rank===0&&person.lligatCount>0?'ring-2 ring-amber-400 dark:ring-amber-500 shadow-lg shadow-amber-200/40 dark:shadow-amber-500/20 pulse-glow-amber':person.lligatCount>0?'ring-2 ring-green-400/60 dark:ring-green-500/40 shadow-md':'ring-1 ring-gray-200/80 dark:ring-stone-700/80'}`} style={{ animationDelay: `${idx*50}ms` }}>
+                            <div className="aspect-square relative cursor-pointer" onClick={() => setShowProfileModal(person.id)}>
+                              <img src={person.photo} alt={person.name} style={IMG_POS[person.id]?{objectPosition:IMG_POS[person.id]}:undefined} className={`w-full h-full object-cover transition-all duration-500 ${isExempt?'brightness-75 grayscale-[30%]':rank===0&&person.lligatCount>0?'brightness-110 saturate-150':person.lligatCount>0?'brightness-105 saturate-120':'brightness-90'}`} />
+                              {isExempt && <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold shadow-lg bg-purple-500/90 text-white backdrop-blur-sm">🏳️‍🌈 EXEMPT</div>}
+                              {person.lligatCount > 0 && !isExempt && <div className={`absolute top-1.5 left-1.5 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-lg ${rank===0?'bg-amber-400 text-amber-900':rank===1?'bg-gray-300 text-gray-700':rank===2?'bg-orange-400 text-orange-900':'bg-black/50 text-white'}`}>{rank+1}</div>}
+                              <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
+                                {streak>=2 && <div className={`flex items-center justify-center rounded-full text-[8px] font-black shadow-lg ${streak>=5?'w-6 h-6 bg-gradient-to-br from-red-500 to-orange-600 text-white animate-bounce':'w-5 h-5 bg-gradient-to-br from-amber-400 to-orange-500 text-white'}`}>🔥</div>}
+                                <div className={`px-2 py-0.5 rounded-full text-sm font-extrabold shadow-lg ${person.lligatCount>0?'bg-green-500 text-white':'bg-black/40 text-white/70'}`}>{person.lligatCount}</div>
                               </div>
-                              {ligueHintId===person.id && (
-                                <button onClick={e => { e.stopPropagation(); openLigueForm(person.id) }} className="animate-hint-fade mt-1 w-full h-6 rounded-full bg-pink-500/80 hover:bg-pink-600 text-white text-[10px] font-bold flex items-center justify-center gap-1">💋 Afegir detalls</button>
-                              )}
+                              {rank===0&&person.lligatCount>0&&!isExempt && <Crown className="absolute -top-0 left-1/2 -translate-x-1/2 -translate-y-1 w-6 h-6 text-amber-400 drop-shadow-lg" />}
+                              {/* Profile peek icon */}
+                              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                <Eye className="w-4 h-4 text-white" />
+                              </div>
+                              <div className="absolute bottom-0 left-0 right-0 p-1.5 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
+                                <p className="text-xs sm:text-sm font-bold text-white truncate">{person.name} {isExempt&&<span className="text-[8px] text-purple-300">(exempt)</span>}</p>
+                                <p className="text-[9px] text-white/60 truncate">{person.nickname}</p>
+                                {achs.length>0 && <div className="flex items-center gap-0.5 mt-0.5 flex-wrap">{achs.map(a => <Tooltip key={a.id}><TooltipTrigger asChild><span className="text-[10px] hover:scale-125 inline-block transition-transform">{a.emoji}</span></TooltipTrigger><TooltipContent side="bottom" className="text-xs"><strong>{a.name}</strong>: {a.desc}</TooltipContent></Tooltip>)}</div>}
+                                {avgR>0 && <p className="text-[8px] text-amber-300/80 flex items-center gap-0.5 mt-0.5"><Star className="w-2.5 h-2.5" /> {avgR.toFixed(1)}</p>}
+                                <div className="flex items-center gap-1 mt-1">
+                                  <button onClick={e => { e.stopPropagation(); decrement(person.id) }} aria-label={`Disminuir ${person.name}`} className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200 ${person.lligatCount>0?'bg-red-500/80 hover:bg-red-600 text-white hover:scale-110':'bg-white/20 text-white/40'}`}>−</button>
+                                  <button onClick={e => { e.stopPropagation(); setEditingId(person.id); setEditValue(String(person.lligatCount)) }} className="flex-1 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition-all duration-200">{person.lligatCount} lligat{person.lligatCount!==1?'s':''}</button>
+                                  <button onClick={e => { e.stopPropagation(); increment(person.id) }} aria-label={`Incrementar ${person.name}`} className="w-8 h-8 rounded-full bg-green-500/80 hover:bg-green-600 text-white text-xs font-bold flex items-center justify-center transition-all duration-200 hover:scale-110">+</button>
+                                </div>
+                                {ligueHintId===person.id && (
+                                  <button onClick={e => { e.stopPropagation(); openLigueForm(person.id) }} className="animate-hint-fade mt-1 w-full h-6 rounded-full bg-pink-500/80 hover:bg-pink-600 text-white text-[10px] font-bold flex items-center justify-center gap-1 transition-all duration-200">💋 Afegir detalls</button>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      )
-                    })}
-                  </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    /* LIST VIEW */
+                    <div className="space-y-1.5 max-h-[600px] overflow-y-auto custom-scrollbar">
+                      {filteredCandidates.map((person, idx) => {
+                        const rank = sorted.findIndex(s => s.id === person.id)
+                        const isExempt = EXEMPT_IDS.has(person.id)
+                        const streak = getStreak(person.id)
+                        const achs = ACHIEVEMENTS.filter(a => person.lligatCount >= a.min)
+                        return (
+                          <div key={person.id} className={`flex items-center gap-3 p-2 rounded-xl transition-all duration-200 hover:bg-orange-50/50 dark:hover:bg-stone-800/30 cursor-pointer ${isExempt?'bg-purple-50/40 dark:bg-purple-900/10':''}`} onClick={() => setShowProfileModal(person.id)}>
+                            <div className="relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ring-2 ${rank===0&&person.lligatCount>0&&!isExempt?'ring-amber-400':'ring-gray-200 dark:ring-stone-700'}">
+                              <img src={person.photo} alt={person.name} style={IMG_POS[person.id]?{objectPosition:IMG_POS[person.id]}:undefined} className={`w-full h-full object-cover ${isExempt?'grayscale-[30%] opacity-70':''}`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-sm font-bold text-gray-800 dark:text-stone-200 truncate">{person.name}</span>
+                                {isExempt && <Badge variant="secondary" className="text-[8px] h-4 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">EXEMPT</Badge>}
+                                <span className="text-[10px] text-gray-400 truncate">{person.nickname}</span>
+                              </div>
+                              <div className="flex items-center gap-1 mt-0.5">
+                                {streak>=2 && <span className="text-[10px]">🔥</span>}
+                                {achs.length>0 && <span className="text-[10px]">{achs.map(a => a.emoji).join('')}</span>}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              <button onClick={e => { e.stopPropagation(); decrement(person.id) }} className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${person.lligatCount>0?'bg-red-100 dark:bg-red-900/30 text-red-600 hover:bg-red-200':'bg-gray-100 dark:bg-stone-800 text-gray-300'}`}>−</button>
+                              <span className="w-8 text-center text-base font-extrabold text-gray-800 dark:text-stone-200">{person.lligatCount}</span>
+                              <button onClick={e => { e.stopPropagation(); increment(person.id) }} className="w-7 h-7 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 hover:bg-green-200 flex items-center justify-center text-xs font-bold transition-all">+</button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -345,10 +447,10 @@ export default function Home() {
               <Card className="bg-white/70 dark:bg-stone-900/70 backdrop-blur-md border-orange-100/80 dark:border-stone-800/80 shadow-xl overflow-hidden">
                 <div className="h-1.5 bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400" />
                 <CardContent className="p-4 sm:p-5">
-                  <div className="flex items-center gap-2 mb-3"><Crown className="w-5 h-5 text-amber-500" /><h2 className="text-lg sm:text-xl font-bold text-gray-800 dark:text-stone-200">Classificació</h2><span className="ml-auto text-[10px] text-gray-400 flex items-center gap-1"><RefreshCw className="w-3 h-3" />auto</span></div>
+                  <div className="flex items-center gap-2 mb-3"><Crown className="w-5 h-5 text-amber-500" /><h2 className="text-lg sm:text-xl font-bold text-gray-800 dark:text-stone-200">Classificació</h2><span className="ml-auto text-[10px] text-gray-400 flex items-center gap-1"><RefreshCw className="w-3 h-3 animate-spin" style={{animationDuration:'3s'}}/>auto</span></div>
                   <Separator className="mb-3 bg-orange-100 dark:bg-stone-700" />
                   {nonExempt.every(c => c.lligatCount===0) ? (
-                    <div className="text-center py-8"><Sparkles className="w-8 h-8 text-gray-300 dark:text-stone-600 mx-auto mb-2 animate-bounce" /><p className="text-sm text-gray-400 italic">Encara ningú ha lligat...</p><p className="text-xs text-gray-300 mt-1">Sigues el primer! 💪</p></div>
+                    <div className="text-center py-8"><Sparkles className="w-10 h-10 text-gray-200 dark:text-stone-700 mx-auto mb-3 animate-bounce" /><p className="text-sm text-gray-400 italic">Encara ningú ha lligat...</p><p className="text-xs text-gray-300 mt-1">Sigues el primer! 💪</p></div>
                   ) : (
                     <div className="space-y-2 max-h-[560px] overflow-y-auto custom-scrollbar">{sorted.map((person, index) => {
                       const maxCount = sorted.filter(c => !EXEMPT_IDS.has(c.id))[0]?.lligatCount || 1
@@ -362,28 +464,28 @@ export default function Home() {
                             <span className="text-lg">{isExempt?'🏳️':index===0?'👑':index===1?'🥈':index===2?'🥉':index+1}</span>
                             {rc!==0&&!isExempt && (<span className={`text-[9px] font-bold flex items-center gap-0.5 animate-rank-bounce ${rc>0?'text-green-500':'text-red-500'}`}>{rc>0?(<ArrowUp className="w-2.5 h-2.5"/>):(<ArrowDown className="w-2.5 h-2.5"/>)}{Math.abs(rc)}</span>)}
                           </div>
-                          <div className={`relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ${index===0&&!isExempt?'ring-2 ring-amber-400':'ring-1 ring-gray-200 dark:ring-stone-700'}`}>
+                          <div className={`relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ${index===0&&!isExempt?'ring-2 ring-amber-400 shadow-md shadow-amber-200/30':'ring-1 ring-gray-200 dark:ring-stone-700'}`}>
                             <img src={person.photo} alt={person.name} style={IMG_POS[person.id]?{objectPosition:IMG_POS[person.id]}:undefined} className={`w-full h-full object-cover ${isExempt?'grayscale-[30%] opacity-70':''}`} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-baseline gap-1.5"><p className={`text-sm font-bold truncate ${isExempt?'text-purple-500 dark:text-purple-400':'text-gray-700 dark:text-stone-300'}`}>{person.name}</p><p className="text-[10px] text-gray-400">{person.nickname}</p></div>
                             <div className="flex items-center gap-2 mt-0.5">
-                              {pLigues.length>0 && <button onClick={() => setShowLigueHistory(person.id)} aria-label={`Historial de ${person.name}`} className="text-[9px] text-orange-500 hover:underline">📖 {pLigues.length}</button>}
+                              {pLigues.length>0 && <button onClick={() => setShowLigueHistory(person.id)} aria-label={`Historial de ${person.name}`} className="text-[9px] text-orange-500 hover:underline flex items-center gap-0.5"><MessageCircle className="w-2.5 h-2.5" />{pLigues.length}</button>}
                               {avgR>0 && <span className="text-[9px] text-amber-500 flex items-center gap-0.5"><Star className="w-2.5 h-2.5" />{avgR.toFixed(1)}</span>}
                             </div>
                             {person.lligatCount>0&&!isExempt && <div className="mt-1 h-1.5 w-full bg-gray-200/60 dark:bg-stone-700/40 rounded-full overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-orange-400 to-rose-400 transition-all duration-700 relative" style={{ width: `${barWidth}%` }}><div className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/30 to-transparent" /></div></div>}
                           </div>
                           <div className="flex items-center gap-1 flex-shrink-0">
-                            <button onClick={() => decrement(person.id)} aria-label={`Disminuir ${person.name}`} className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${person.lligatCount>0?'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200':'bg-gray-100 dark:bg-stone-800 text-gray-300'}`}>−</button>
+                            <button onClick={() => decrement(person.id)} aria-label={`Disminuir ${person.name}`} className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200 ${person.lligatCount>0?'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 hover:scale-110':'bg-gray-100 dark:bg-stone-800 text-gray-300'}`}>−</button>
                             <span className="w-8 text-center text-lg font-extrabold text-gray-800 dark:text-stone-200">{person.lligatCount}</span>
-                            <button onClick={() => increment(person.id)} aria-label={`Incrementar ${person.name}`} className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 flex items-center justify-center text-xs font-bold">+</button>
+                            <button onClick={() => increment(person.id)} aria-label={`Incrementar ${person.name}`} className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 flex items-center justify-center text-xs font-bold transition-all duration-200 hover:scale-110">+</button>
                           </div>
                         </div>
                       )
                     })}</div>
                   )}
                   {editingId && (
-                    <div className="mt-3 p-3 bg-orange-50/80 dark:bg-orange-900/20 rounded-xl border border-orange-200/50 dark:border-orange-800/50">
+                    <div className="mt-3 p-3 bg-orange-50/80 dark:bg-orange-900/20 rounded-xl border border-orange-200/50 dark:border-orange-800/50 animate-in slide-in-from-bottom duration-200">
                       <p className="text-xs text-gray-600 dark:text-stone-400 mb-2">Editar <strong>{candidates.find(c => c.id===editingId)?.name}</strong>:</p>
                       <div className="flex items-center gap-2"><Input type="number" min="0" value={editValue} onChange={e => setEditValue(e.target.value)} onKeyDown={e => { if (e.key==='Enter') handleInputSubmit(editingId!) }} className="h-8 text-center font-bold" autoFocus /><Button size="sm" onClick={() => handleInputSubmit(editingId!)} className="bg-green-500 hover:bg-green-600 text-white">✓</Button><Button size="sm" variant="ghost" onClick={() => { setEditingId(null); setEditValue('') }}>✕</Button></div>
                     </div>
@@ -392,12 +494,12 @@ export default function Home() {
               </Card>
               {/* Rivalries */}
               {rivalries.length>0 && (
-                <Card className="mt-4 bg-white/70 dark:bg-stone-900/70 backdrop-blur-md border-orange-100/80 dark:border-stone-800/80 shadow-xl overflow-hidden">
+                <Card className="mt-4 bg-white/70 dark:bg-stone-900/70 backdrop-blur-md border-orange-100/80 dark:border-stone-800/80 shadow-xl overflow-hidden animate-card-entrance">
                   <div className="h-1.5 bg-gradient-to-r from-red-400 via-orange-400 to-yellow-400" />
                   <CardContent className="p-4">
-                    <div className="flex items-center gap-2 mb-2"><Swords className="w-4 h-4 text-red-500" /><h3 className="text-sm font-bold text-gray-700 dark:text-stone-300">Rivalitats</h3></div>
+                    <div className="flex items-center gap-2 mb-2"><Swords className="w-4 h-4 text-red-500" /><h3 className="text-sm font-bold text-gray-700 dark:text-stone-300">Rivalitats</h3><Badge variant="secondary" className="text-[8px] h-4 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400">EN DIRECTE</Badge></div>
                     <div className="space-y-1.5">{rivalries.map((r, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs p-2 rounded-lg bg-gradient-to-r from-red-50/50 to-orange-50/50 dark:from-red-900/10 dark:to-orange-900/10 border border-red-100/30 dark:border-red-800/20">
+                      <div key={i} className="flex items-center gap-2 text-xs p-2 rounded-lg bg-gradient-to-r from-red-50/50 to-orange-50/50 dark:from-red-900/10 dark:to-orange-900/10 border border-red-100/30 dark:border-red-800/20 transition-all hover:scale-[1.01]">
                         <div className="w-5 h-5 rounded-full overflow-hidden ring-1 ring-gray-200 dark:ring-stone-700"><img src={r.a.photo} alt={r.a.name} style={IMG_POS[r.a.id]?{objectPosition:IMG_POS[r.a.id]}:undefined} className="w-full h-full object-cover" /></div>
                         <span className="font-bold text-gray-700 dark:text-stone-300">{r.a.name}</span><span className="text-red-500 font-extrabold">⚔️</span>
                         <div className="w-5 h-5 rounded-full overflow-hidden ring-1 ring-gray-200 dark:ring-stone-700"><img src={r.b.photo} alt={r.b.name} style={IMG_POS[r.b.id]?{objectPosition:IMG_POS[r.b.id]}:undefined} className="w-full h-full object-cover" /></div>
@@ -417,14 +519,24 @@ export default function Home() {
                   <div className="flex items-center gap-2 mb-3"><Zap className="w-5 h-5 text-rose-500" /><h2 className="text-base sm:text-lg font-bold text-gray-800 dark:text-stone-200">Estadístiques</h2></div>
                   <Separator className="mb-3 bg-orange-100 dark:bg-stone-700" />
                   <div className="grid grid-cols-2 gap-2.5">
-                    <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/10 rounded-xl p-2.5 text-center border border-orange-100/50 dark:border-orange-800/30"><p className="text-2xl font-extrabold text-orange-600 dark:text-orange-400">{totalLligues}</p><p className="text-[10px] text-gray-500">Total</p></div>
-                    <div className="bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-900/20 dark:to-pink-900/10 rounded-xl p-2.5 text-center border border-rose-100/50 dark:border-rose-800/30"><p className="text-2xl font-extrabold text-rose-600 dark:text-rose-400">{avgLligues}</p><p className="text-[10px] text-gray-500">Mitjana</p></div>
-                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/10 rounded-xl p-2.5 text-center border border-green-100/50 dark:border-green-800/30"><p className="text-2xl font-extrabold text-green-600 dark:text-green-400">{activeCount}</p><p className="text-[10px] text-gray-500">Actius</p></div>
-                    <div className="bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/10 rounded-xl p-2.5 text-center border border-amber-100/50 dark:border-amber-800/30"><p className="text-lg font-extrabold text-amber-600 dark:text-amber-400 truncate">{topCandidate&&topCandidate.lligatCount>0?topCandidate.name:'—'}</p><p className="text-[10px] text-gray-500">Líder</p></div>
+                    <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/10 rounded-xl p-2.5 text-center border border-orange-100/50 dark:border-orange-800/30 hover:shadow-md transition-shadow"><p className="text-2xl font-extrabold text-orange-600 dark:text-orange-400">{totalLligues}</p><p className="text-[10px] text-gray-500">Total</p></div>
+                    <div className="bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-900/20 dark:to-pink-900/10 rounded-xl p-2.5 text-center border border-rose-100/50 dark:border-rose-800/30 hover:shadow-md transition-shadow"><p className="text-2xl font-extrabold text-rose-600 dark:text-rose-400">{avgLligues}</p><p className="text-[10px] text-gray-500">Mitjana</p></div>
+                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/10 rounded-xl p-2.5 text-center border border-green-100/50 dark:border-green-800/30 hover:shadow-md transition-shadow"><p className="text-2xl font-extrabold text-green-600 dark:text-green-400">{activeCount}</p><p className="text-[10px] text-gray-500">Actius</p></div>
+                    <div className="bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/10 rounded-xl p-2.5 text-center border border-amber-100/50 dark:border-amber-800/30 hover:shadow-md transition-shadow"><p className="text-lg font-extrabold text-amber-600 dark:text-amber-400 truncate">{topCandidate&&topCandidate.lligatCount>0?topCandidate.name:'—'}</p><p className="text-[10px] text-gray-500">Líder</p></div>
                   </div>
+                  {/* Weekly stats */}
+                  {weeklyStats.total > 0 && (
+                    <div className="mt-3 p-2.5 rounded-lg bg-gradient-to-r from-violet-50/50 to-purple-50/50 dark:from-violet-900/10 dark:to-purple-900/10 border border-violet-100/30 dark:border-violet-800/20">
+                      <div className="flex items-center gap-1.5 mb-1"><Calendar className="w-3 h-3 text-violet-500" /><span className="text-[10px] font-bold text-gray-500 dark:text-stone-400">Aquesta setmana</span></div>
+                      <p className="text-sm font-extrabold text-violet-600 dark:text-violet-400">{weeklyStats.total} lligades</p>
+                      {weeklyStats.top && (
+                        <p className="text-[9px] text-gray-400 mt-0.5">👑 {candidates.find(c => c.id === weeklyStats.top!.id)?.name} ({weeklyStats.top.count})</p>
+                      )}
+                    </div>
+                  )}
                   {/* Speed */}
                   {(() => { const ri = activity.filter(a => a.action==='increment'&&Date.now()-new Date(a.createdAt).getTime()<86400000).length; if (ri===0&&totalLligues===0) return null; const sp = Math.min(ri/5*100, 100); return (
-                    <div className="mt-3 p-2 rounded-lg bg-gradient-to-r from-cyan-50/50 to-blue-50/50 dark:from-cyan-900/10 dark:to-blue-900/10 border border-cyan-100/30 dark:border-cyan-800/20">
+                    <div className="mt-3 p-2.5 rounded-lg bg-gradient-to-r from-cyan-50/50 to-blue-50/50 dark:from-cyan-900/10 dark:to-blue-900/10 border border-cyan-100/30 dark:border-cyan-800/20">
                       <div className="flex items-center gap-1.5 mb-1"><Gauge className="w-3 h-3 text-cyan-500" /><span className="text-[10px] font-bold text-gray-500 dark:text-stone-400">Ritme avui</span></div>
                       <div className="h-2 bg-gray-200/60 dark:bg-stone-700/40 rounded-full overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 transition-all duration-700" style={{ width: `${sp}%` }} /></div>
                       <p className="text-[9px] text-gray-400 mt-0.5">{ri} lligades/24h {sp>=80?'🚀':sp>=40?'🔥':'💤'}</p>
@@ -432,25 +544,25 @@ export default function Home() {
                   )})()}
                   {/* Location Stats */}
                   {locationStats.unique>0 && (
-                    <div className="mt-3 p-2 rounded-lg bg-gradient-to-r from-teal-50/50 to-cyan-50/50 dark:from-teal-900/10 dark:to-cyan-900/10 border border-teal-100/30 dark:border-teal-800/20">
+                    <div className="mt-3 p-2.5 rounded-lg bg-gradient-to-r from-teal-50/50 to-cyan-50/50 dark:from-teal-900/10 dark:to-cyan-900/10 border border-teal-100/30 dark:border-teal-800/20">
                       <div className="flex items-center gap-1.5 mb-1"><MapPin className="w-3 h-3 text-teal-500" /><span className="text-[10px] font-bold text-gray-500 dark:text-stone-400">📍 Ubicacions</span></div>
                       <p className="text-sm font-extrabold text-teal-600 dark:text-teal-400">{locationStats.unique}</p>
                       {locationStats.top3.length>0 && <div className="mt-1 space-y-0.5">{locationStats.top3.map(([loc, cnt]) => <div key={loc} className="flex items-center justify-between text-[9px]"><span className="text-gray-600 dark:text-stone-400 truncate">{loc}</span><span className="font-bold text-teal-500 ml-1">{cnt}×</span></div>)}</div>}
                     </div>
                   )}
                   {/* Top Rating */}
-                  {ligues.length>0 && (<div className="mt-3"><div className="flex items-center gap-1.5 mb-2"><Award className="w-3.5 h-3.5 text-amber-500" /><p className="text-[11px] font-bold text-gray-500">Top Valoració</p></div><div className="space-y-1">{candidates.filter(c => getAvgRating(c.id)>0).sort((a, b) => getAvgRating(b.id)-getAvgRating(a.id)).slice(0, 3).map((c, i) => (<div key={c.id} className="flex items-center gap-2 text-[10px] px-2 py-1 rounded-lg bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100/30 dark:border-amber-800/20"><span>{i===0?'🥇':i===1?'🥈':'🥉'}</span><span className="font-semibold text-gray-700 dark:text-stone-300">{c.name}</span><div className="ml-auto flex items-center gap-1"><Star className="w-3 h-3 text-amber-400 fill-amber-400" /><span className="font-bold text-amber-600 dark:text-amber-400">{getAvgRating(c.id).toFixed(1)}</span></div></div>))}</div></div>)}
+                  {ligues.length>0 && (<div className="mt-3"><div className="flex items-center gap-1.5 mb-2"><Award className="w-3.5 h-3.5 text-amber-500" /><p className="text-[11px] font-bold text-gray-500">Top Valoració</p></div><div className="space-y-1">{candidates.filter(c => getAvgRating(c.id)>0).sort((a, b) => getAvgRating(b.id)-getAvgRating(a.id)).slice(0, 3).map((c, i) => (<div key={c.id} className="flex items-center gap-2 text-[10px] px-2 py-1 rounded-lg bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100/30 dark:border-amber-800/20 hover:shadow-sm transition-shadow"><span>{i===0?'🥇':i===1?'🥈':'🥉'}</span><span className="font-semibold text-gray-700 dark:text-stone-300">{c.name}</span><div className="ml-auto flex items-center gap-1"><Star className="w-3 h-3 text-amber-400 fill-amber-400" /><span className="font-bold text-amber-600 dark:text-amber-400">{getAvgRating(c.id).toFixed(1)}</span></div></div>))}</div></div>)}
                   {/* Achievements */}
-                  {candidates.some(c => ACHIEVEMENTS.some(a => c.lligatCount>=a.min)) && (<div className="mt-3"><div className="flex items-center gap-1.5 mb-2"><Target className="w-3.5 h-3.5 text-orange-500" /><p className="text-[11px] font-bold text-gray-500">Fites</p></div><div className="space-y-1 max-h-32 overflow-y-auto custom-scrollbar">{candidates.filter(c => ACHIEVEMENTS.some(a => c.lligatCount>=a.min)).map(c => (<div key={c.id} className="flex items-center gap-1.5 text-[10px] px-2 py-1.5 rounded-lg bg-gradient-to-r from-orange-50/50 to-rose-50/50 dark:from-orange-900/10 dark:to-rose-900/10 border border-orange-100/30 dark:border-orange-800/20"><div className="w-5 h-5 rounded-full overflow-hidden ring-1 ring-gray-200 dark:ring-stone-700 flex-shrink-0"><img src={c.photo} alt={c.name} style={IMG_POS[c.id]?{objectPosition:IMG_POS[c.id]}:undefined} className="w-full h-full object-cover" /></div><span className="font-semibold text-gray-700 dark:text-stone-300 truncate">{c.name}</span><div className="ml-auto flex items-center gap-0.5">{ACHIEVEMENTS.filter(a => c.lligatCount>=a.min).map(a => <Tooltip key={a.id}><TooltipTrigger asChild><span className="text-xs">{a.emoji}</span></TooltipTrigger><TooltipContent side="left" className="text-xs"><strong>{a.name}</strong>: {a.desc}</TooltipContent></Tooltip>)}</div></div>))}</div></div>)}
-                  {/* Podium - Enhanced with proportional height bars */}
+                  {candidates.some(c => ACHIEVEMENTS.some(a => c.lligatCount>=a.min)) && (<div className="mt-3"><div className="flex items-center gap-1.5 mb-2"><Target className="w-3.5 h-3.5 text-orange-500" /><p className="text-[11px] font-bold text-gray-500">Fites</p></div><div className="space-y-1 max-h-32 overflow-y-auto custom-scrollbar">{candidates.filter(c => ACHIEVEMENTS.some(a => c.lligatCount>=a.min)).map(c => (<div key={c.id} className="flex items-center gap-1.5 text-[10px] px-2 py-1.5 rounded-lg bg-gradient-to-r from-orange-50/50 to-rose-50/50 dark:from-orange-900/10 dark:to-rose-900/10 border border-orange-100/30 dark:border-orange-800/20"><div className="w-5 h-5 rounded-full overflow-hidden ring-1 ring-gray-200 dark:ring-stone-700 flex-shrink-0"><img src={c.photo} alt={c.name} style={IMG_POS[c.id]?{objectPosition:IMG_POS[c.id]}:undefined} className="w-full h-full object-cover" /></div><span className="font-semibold text-gray-700 dark:text-stone-300 truncate">{c.name}</span><div className="ml-auto flex items-center gap-0.5">{ACHIEVEMENTS.filter(a => c.lligatCount>=a.min).map(a => <Tooltip key={a.id}><TooltipTrigger asChild><span className="text-xs hover:scale-125 inline-block transition-transform">{a.emoji}</span></TooltipTrigger><TooltipContent side="left" className="text-xs"><strong>{a.name}</strong>: {a.desc}</TooltipContent></Tooltip>)}</div></div>))}</div></div>)}
+                  {/* Podium */}
                   {(() => { const t3 = sorted.filter(c => c.lligatCount>0&&!EXEMPT_IDS.has(c.id)).slice(0, 3); if (t3.length<2) return null; const maxC = t3[0]?.lligatCount||1; return (
                     <div className="mt-4 p-3 bg-gradient-to-r from-amber-50/50 to-orange-50/50 dark:from-amber-900/10 dark:to-orange-900/10 rounded-xl border border-amber-100/30 dark:border-amber-800/20">
-                      <p className="text-[11px] font-bold text-gray-500 mb-2 text-center">🏆 PODIUM</p>
+                      <p className="text-[11px] font-bold text-gray-500 mb-2 text-center flex items-center justify-center gap-1"><PartyPopper className="w-3.5 h-3.5 text-amber-500" /> PODIUM</p>
                       <div className="flex items-end justify-center gap-1.5">
                         {[t3[1], t3[0], t3[2]].filter(Boolean).map((p, i) => { const is1st = i===1; const is2nd = i===0; const barH = Math.max(Math.round((p!.lligatCount/maxC)*64), 20); return p ? (
                           <div key={p.id} className="text-center flex-1">
                             {is1st && <Crown className="w-5 h-5 text-amber-400 mx-auto mb-0.5" />}
-                            <div className={`relative ${is1st?'w-11 h-11':'w-9 h-9'} mx-auto rounded-full overflow-hidden ring-2 ${is1st?'ring-amber-400':is2nd?'ring-gray-300':'ring-orange-300'} mb-1`}><img src={p.photo} alt={p.name} style={IMG_POS[p.id]?{objectPosition:IMG_POS[p.id]}:undefined} className="w-full h-full object-cover" /></div>
+                            <div className={`relative ${is1st?'w-11 h-11':'w-9 h-9'} mx-auto rounded-full overflow-hidden ring-2 ${is1st?'ring-amber-400 shadow-md shadow-amber-200/30':is2nd?'ring-gray-300':'ring-orange-300'} mb-1`}><img src={p.photo} alt={p.name} style={IMG_POS[p.id]?{objectPosition:IMG_POS[p.id]}:undefined} className="w-full h-full object-cover" /></div>
                             <p className={`text-[9px] font-bold truncate ${is1st?'text-amber-700 dark:text-amber-400':'text-gray-600 dark:text-stone-400'}`}>{p.name}</p>
                             <div className={`mt-0.5 rounded text-[10px] font-bold py-0.5 ${is1st?'bg-amber-200 dark:bg-amber-800/50 text-amber-700 dark:text-amber-400':is2nd?'bg-gray-200 dark:bg-stone-700 text-gray-600':'bg-orange-200 dark:bg-orange-800/50 text-orange-700 dark:text-orange-400'}`}>{p.lligatCount}</div>
                             <div className={`rounded-t mt-1 transition-all duration-700 ${is1st?'bg-amber-300/50 dark:bg-amber-700/40':is2nd?'bg-gray-300/50 dark:bg-stone-600/40':'bg-orange-300/50 dark:bg-orange-700/40'}`} style={{ height: `${barH}px` }} />
@@ -460,6 +572,7 @@ export default function Home() {
                       </div>
                     </div>
                   )})()}
+                  {/* Motivation */}
                   <div className="mt-3 p-2.5 bg-gradient-to-r from-orange-50/50 to-rose-50/50 dark:from-orange-900/10 dark:to-rose-900/10 rounded-xl border border-orange-100/30 dark:border-orange-800/20">
                     <p className="text-[11px] text-center text-gray-500 dark:text-stone-400 italic">{getMotivation(totalLligues)}</p>
                   </div>
@@ -469,7 +582,7 @@ export default function Home() {
               <Card className="bg-white/70 dark:bg-stone-900/70 backdrop-blur-md border-orange-100/80 dark:border-stone-800/80 shadow-xl overflow-hidden">
                 <div className="h-1.5 bg-gradient-to-r from-cyan-400 via-teal-400 to-emerald-400" />
                 <CardContent className="p-4">
-                  <h3 className="text-sm font-bold text-gray-700 dark:text-stone-300 mb-2 flex items-center gap-1.5"><Hash className="w-4 h-4 text-cyan-500" /> Com funciona?</h3>
+                  <h3 className="text-sm font-bold text-gray-700 dark:text-stone-300 mb-2 flex items-center gap-1.5"><Info className="w-4 h-4 text-cyan-500" /> Com funciona?</h3>
                   <div className="space-y-1.5 text-[11px] text-gray-500 dark:text-stone-400">
                     <p>+ Suma <strong>+1</strong> cada vegada que lliguis</p>
                     <p>− Resta si t&apos;has equivocat</p>
@@ -483,6 +596,7 @@ export default function Home() {
                     <p>⭐ Valora (1-10)</p>
                     <p>🏅 Desbloqueja fites!</p>
                     <p>⚔️ Rivalitats en directe</p>
+                    <p>👁️ Clica una foto per al perfil</p>
                     <div className="mt-2 pt-2 border-t border-purple-200/50 dark:border-purple-800/30">
                       <p className="text-purple-600 dark:text-purple-400 font-bold">🏳️‍🌈 ElRey</p>
                       <p className="text-purple-500/80 dark:text-purple-400/70 mt-0.5"><strong>Exempt</strong> - GAY, lliga massa. Però pot sumar!</p>
@@ -494,16 +608,109 @@ export default function Home() {
           </div>
         </main>
 
+        {/* PROFILE MODAL - New feature */}
+        {showProfileModal && (() => {
+          const person = candidates.find(c => c.id === showProfileModal)
+          if (!person) return null
+          const pLigues = ligues.filter(l => l.personId === person.id)
+          const pActivity = activity.filter(a => a.personId === person.id).slice(0, 10)
+          const streak = getStreak(person.id)
+          const avgR = getAvgRating(person.id)
+          const achs = ACHIEVEMENTS.filter(a => person.lligatCount >= a.min)
+          const rank = sorted.findIndex(s => s.id === person.id)
+          const isExempt = EXEMPT_IDS.has(person.id)
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowProfileModal(null)}>
+              <div className="w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                <Card className="bg-white dark:bg-stone-900 shadow-2xl border-2 border-orange-200 dark:border-orange-800 overflow-hidden">
+                  <div className="h-2 bg-gradient-to-r from-orange-400 via-rose-400 to-pink-500" />
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`relative w-14 h-14 rounded-full overflow-hidden ring-2 ${rank===0&&!isExempt?'ring-amber-400':'ring-gray-200 dark:ring-stone-700'}`}>
+                          <img src={person.photo} alt={person.name} style={IMG_POS[person.id]?{objectPosition:IMG_POS[person.id]}:undefined} className="w-full h-full object-cover" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-gray-800 dark:text-stone-200 text-lg">{person.name} {rank===0&&!isExempt&&person.lligatCount>0&&'👑'}</h3>
+                          <p className="text-xs text-gray-400">{person.nickname}</p>
+                          {isExempt && <Badge variant="secondary" className="text-[9px] bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 mt-0.5">🏳️‍🌈 EXEMPT</Badge>}
+                        </div>
+                      </div>
+                      <button onClick={() => setShowProfileModal(null)} aria-label="Tancar perfil" className="text-gray-400 hover:text-gray-600 transition-colors"><X className="w-5 h-5" /></button>
+                    </div>
+                    {/* Stats grid */}
+                    <div className="grid grid-cols-3 gap-2 mb-4">
+                      <div className="bg-orange-50 dark:bg-orange-900/10 rounded-xl p-2.5 text-center border border-orange-100/50 dark:border-orange-800/30">
+                        <p className="text-xl font-extrabold text-orange-600 dark:text-orange-400">{person.lligatCount}</p>
+                        <p className="text-[9px] text-gray-500">Lligades</p>
+                      </div>
+                      <div className="bg-amber-50 dark:bg-amber-900/10 rounded-xl p-2.5 text-center border border-amber-100/50 dark:border-amber-800/30">
+                        <p className="text-xl font-extrabold text-amber-600 dark:text-amber-400">{avgR>0?avgR.toFixed(1):'—'}</p>
+                        <p className="text-[9px] text-gray-500">Valoració</p>
+                      </div>
+                      <div className="bg-rose-50 dark:bg-rose-900/10 rounded-xl p-2.5 text-center border border-rose-100/50 dark:border-rose-800/30">
+                        <p className="text-xl font-extrabold text-rose-600 dark:text-rose-400">{streak>0?streak:'—'}</p>
+                        <p className="text-[9px] text-gray-500">Ratxa 🔥</p>
+                      </div>
+                    </div>
+                    {/* Achievements */}
+                    {achs.length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-[11px] font-bold text-gray-500 mb-1.5">🏅 Fites</p>
+                        <div className="flex items-center gap-1 flex-wrap">{achs.map(a => <Tooltip key={a.id}><TooltipTrigger asChild><span className="px-2 py-1 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/10 dark:to-amber-900/10 rounded-full text-xs border border-orange-100/30 dark:border-orange-800/20">{a.emoji} {a.name}</span></TooltipTrigger><TooltipContent side="bottom" className="text-xs">{a.desc}</TooltipContent></Tooltip>)}</div>
+                      </div>
+                    )}
+                    {/* Activity */}
+                    {pActivity.length > 0 && (
+                      <div className="mb-4">
+                        <p className="text-[11px] font-bold text-gray-500 mb-1.5">📋 Activitat recent</p>
+                        <div className="space-y-1 max-h-28 overflow-y-auto custom-scrollbar">{pActivity.map(e => (
+                          <div key={e.id} className={`flex items-center gap-2 text-[10px] py-0.5 px-1.5 rounded ${e.action==='increment'?'text-green-600 dark:text-green-400':'text-red-500'}`}>
+                            {e.action==='increment'?<ArrowUp className="w-2.5 h-2.5"/>:<ArrowDown className="w-2.5 h-2.5"/>}
+                            <span>{e.action==='increment'?'+1':'-1'}</span><span className="text-gray-400">→ {e.value}</span><span className="ml-auto text-gray-400">{timeAgo(e.createdAt)}</span>
+                          </div>
+                        ))}</div>
+                      </div>
+                    )}
+                    {/* Ligues */}
+                    {pLigues.length > 0 && (
+                      <div>
+                        <p className="text-[11px] font-bold text-gray-500 mb-1.5">💋 Detalls ({pLigues.length})</p>
+                        <div className="space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar">{pLigues.map(l => (
+                          <div key={l.id} className="p-2 rounded-lg bg-orange-50/50 dark:bg-orange-900/10 border border-orange-100/30 dark:border-orange-800/20 text-[10px]">
+                            <div className="flex items-center gap-2">
+                              {l.nom && <span className="text-gray-700 dark:text-stone-300 font-medium">{l.nom}</span>}
+                              {l.edat && <span className="text-gray-400">{l.edat} anys</span>}
+                              {l.ubi && <span className="text-gray-400 flex items-center gap-0.5"><MapPin className="w-2.5 h-2.5" />{l.ubi}</span>}
+                              {l.rating > 0 && <span className="text-amber-500 font-bold ml-auto">{l.rating}/10 ⭐</span>}
+                            </div>
+                            <p className="text-[9px] text-gray-400 mt-0.5">{timeAgo(l.createdAt)}</p>
+                          </div>
+                        ))}</div>
+                      </div>
+                    )}
+                    {/* Quick actions */}
+                    <div className="flex gap-2 mt-4 pt-3 border-t border-orange-100/50 dark:border-stone-800/50">
+                      <Button onClick={() => { increment(person.id); setShowProfileModal(null) }} className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold gap-1">+1 Lligada 💪</Button>
+                      <Button variant="outline" onClick={() => { setShowProfileModal(null); openLigueForm(person.id) }} className="gap-1">💋 Detalls</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )
+        })()}
+
         {/* LIGUE FORM MODAL */}
         {showLigueForm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={skipLigue}>
-            <div className="w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="w-full max-w-md animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
               <Card className="bg-white dark:bg-stone-900 shadow-2xl border-2 border-orange-200 dark:border-orange-800 overflow-hidden">
                 <div className="h-2 bg-gradient-to-r from-orange-400 via-rose-400 to-pink-500" />
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2"><div className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-orange-400"><img src={candidates.find(c => c.id===showLigueForm)?.photo||''} alt="" className="w-full h-full object-cover" /></div><div><h3 className="font-bold text-gray-800 dark:text-stone-200 text-sm">Detalls 💋</h3><p className="text-[10px] text-gray-500">{candidates.find(c => c.id===showLigueForm)?.name}</p></div></div>
-                    <button onClick={skipLigue} aria-label="Tancar" className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+                    <button onClick={skipLigue} aria-label="Tancar" className="text-gray-400 hover:text-gray-600 transition-colors"><X className="w-5 h-5" /></button>
                   </div>
                   <div className="space-y-3">
                     <div><label className="text-xs font-semibold text-gray-600 dark:text-stone-400 flex items-center gap-1.5 mb-1"><Heart className="w-3 h-3 text-rose-400" /> Nom</label><Input value={ligueNom} onChange={e => setLigueNom(e.target.value)} placeholder="Nom (opcional)" className="h-9 text-sm" /></div>
@@ -523,17 +730,17 @@ export default function Home() {
         {/* LIGUE HISTORY MODAL */}
         {showLigueHistory && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowLigueHistory(null)}>
-            <div className="w-full max-w-lg max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="w-full max-w-lg max-h-[80vh] overflow-y-auto animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
               <Card className="bg-white dark:bg-stone-900 shadow-2xl border-2 border-orange-200 dark:border-orange-800 overflow-hidden">
                 <div className="h-2 bg-gradient-to-r from-cyan-400 to-emerald-400" />
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2"><div className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-orange-400"><img src={candidates.find(c => c.id===showLigueHistory)?.photo||''} alt="" className="w-full h-full object-cover" /></div><div><h3 className="font-bold text-gray-800 dark:text-stone-200">Historial 📖</h3><p className="text-[10px] text-gray-400">{ligues.filter(l => l.personId===showLigueHistory).length} lligades</p></div></div>
-                    <button onClick={() => setShowLigueHistory(null)} aria-label="Tancar historial" className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+                    <button onClick={() => setShowLigueHistory(null)} aria-label="Tancar historial" className="text-gray-400 hover:text-gray-600 transition-colors"><X className="w-5 h-5" /></button>
                   </div>
                   {ligues.filter(l => l.personId===showLigueHistory).length===0 ? <p className="text-sm text-gray-400 italic text-center py-4">Sense detalls... 😴</p> : (
                     <div className="space-y-2">{ligues.filter(l => l.personId===showLigueHistory).map(ligue => (
-                      <div key={ligue.id} className="p-3 rounded-xl bg-gradient-to-r from-orange-50/50 to-rose-50/50 dark:from-orange-900/10 dark:to-rose-900/10 border border-orange-100/50 dark:border-orange-800/30 relative group">
+                      <div key={ligue.id} className="p-3 rounded-xl bg-gradient-to-r from-orange-50/50 to-rose-50/50 dark:from-orange-900/10 dark:to-rose-900/10 border border-orange-100/50 dark:border-orange-800/30 relative group transition-all hover:shadow-md">
                         <div className="grid grid-cols-2 gap-2 text-xs">
                           {ligue.nom && <div><span className="text-gray-400 flex items-center gap-0.5"><Heart className="w-2.5 h-2.5" /> Nom:</span><p className="font-semibold text-gray-700 dark:text-stone-300">{ligue.nom}</p></div>}
                           {ligue.edat && <div><span className="text-gray-400 flex items-center gap-0.5"><Users className="w-2.5 h-2.5" /> Edat:</span><p className="font-semibold text-gray-700 dark:text-stone-300">{ligue.edat}</p></div>}
@@ -553,11 +760,11 @@ export default function Home() {
         {/* SHARE MODAL */}
         {showShareModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowShareModal(false)}>
-            <div className="w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="w-full max-w-md animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
               <Card className="bg-white dark:bg-stone-900 shadow-2xl border-2 border-emerald-200 dark:border-emerald-800 overflow-hidden">
                 <div className="h-2 bg-gradient-to-r from-emerald-400 to-teal-400" />
                 <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-3"><h3 className="font-bold text-gray-800 dark:text-stone-200">Compartir</h3><button onClick={() => setShowShareModal(false)} aria-label="Tancar" className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button></div>
+                  <div className="flex items-center justify-between mb-3"><h3 className="font-bold text-gray-800 dark:text-stone-200">Compartir</h3><button onClick={() => setShowShareModal(false)} aria-label="Tancar" className="text-gray-400 hover:text-gray-600 transition-colors"><X className="w-5 h-5" /></button></div>
                   <textarea readOnly value={shareText} className="w-full h-40 p-3 text-xs bg-gray-50 dark:bg-stone-800 border border-gray-200 dark:border-stone-700 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-emerald-400" />
                   <div className="flex gap-2 mt-3"><Button onClick={() => { navigator.clipboard.writeText(shareText); addToast('Copiat!', 'success'); setShowShareModal(false) }} className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold">Copiar 📋</Button><Button variant="ghost" onClick={() => setShowShareModal(false)}>Tancar</Button></div>
                 </CardContent>
@@ -574,7 +781,7 @@ export default function Home() {
           </DialogContent>
         </Dialog>
 
-        {/* FOOTER - Bug fix: check for both null AND empty string */}
+        {/* FOOTER */}
         <footer className="relative z-10 mt-auto py-3 px-4 text-center border-t border-orange-100/30 dark:border-stone-800/30 bg-white/30 dark:bg-stone-900/30 backdrop-blur-sm">
           <div className="flex items-center justify-center gap-3 text-[10px] text-gray-400 dark:text-stone-600">
             <span>🔥 Qui lliga més? &copy; {new Date().getFullYear()}</span>

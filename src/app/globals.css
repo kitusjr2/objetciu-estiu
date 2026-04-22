@@ -315,3 +315,47 @@ button:focus-visible {
 .rank-stripe-bronze {
   border-left: 3px solid #f97316;
 }
+
+/* ─── Floating background blobs ─── */
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  50% { transform: translateY(-20px) translateX(10px); }
+}
+@keyframes float-medium {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  50% { transform: translateY(-15px) translateX(-15px); }
+}
+@keyframes float-fast {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  50% { transform: translateY(-10px) translateX(20px); }
+}
+.animate-float-slow {
+  animation: float-slow 8s ease-in-out infinite;
+}
+.animate-float-medium {
+  animation: float-medium 6s ease-in-out infinite;
+}
+.animate-float-fast {
+  animation: float-fast 4s ease-in-out infinite;
+}
+
+/* ─── Badge pulse for rivalries ─── */
+@keyframes badge-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* ─── Enhanced modal overlay ─── */
+@keyframes modal-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ─── Micro-interaction: button press ─── */
+button:active {
+  transform: scale(0.95);
+  transition: transform 0.1s ease;
+}
+button:active:hover {
+  transform: scale(0.95);
+}
