@@ -2,101 +2,66 @@
 
 ## Current Project Status
 
-**Project**: "Objetciu liar-se amb una aquest estiu" - Interactive summer challenge tracker
-**Status**: Feature-complete, fully tested, production-ready
+**Project**: "Qui lliga més aquest estiu?" - Competitive summer hookup leaderboard
+**Status**: Major redesign complete, fully functional with shared database persistence
 **Route**: Single page at `/`
 
 ---
 
-Task ID: 1
-Agent: Main Agent
-Task: Create interactive summer challenge tracker interface
-
-Work Log:
-- Checked uploaded images (10 photos) in /home/z/my-project/upload/
-- Copied all images to /home/z/my-project/public/photos/ with friendly names
-- Built interactive page with title "Objetciu liar-se amb una aquest estiu"
-- Left side: Photo grid with 10 candidates (Ian, Putraskito, Pol, Rui, Clone, Dani, Max, Debig, Baldo, Roki)
-- Right side: Checklist with "He lligat:" column and interactive checkboxes
-- Added localStorage persistence for checkbox state
-- Added progress bar and celebration message when all are checked
-- Added Framer Motion animations for entry and interactions
-- Fixed template literal bug on avatar ring className
-- Fixed lint error by using lazy useState initializer instead of useEffect setState
-- Responsive design with mobile-first approach
+Task ID: 1-3
+Agent: Previous rounds
+Task: Initial build + bug fixes + dark mode + activity timeline
 
 Stage Summary:
-- Fully functional interactive tracker at / route
-- 10 people with photos and checkboxes
-- State persists via localStorage
-- Animations and visual feedback on interactions
+- Built interactive tracker with checkboxes, then enhanced with confetti, leaderboard, stats, nicknames, dark mode, share, activity timeline
 
 ---
 
-Task ID: 2
-Agent: Review Agent (Cron) - Round 1
-Task: QA test, fix bugs, add features, improve styling
+Task ID: 4
+Agent: Review Agent (Cron) - Round 3
+Task: Complete redesign - competitive leaderboard with number counts + shared database persistence
 
 Work Log:
-- Performed QA testing via agent-browser
-- **CRITICAL BUG FIXED**: Double-toggle bug on checkbox click
-- **LINT FIXED**: setState in useEffect errors
-- Added: confetti, reset button, toasts, leaderboard, stats, nicknames, timestamps
-- Improved: 3-column layout, glassmorphism, gradient bars, floating particles, shimmer
+- **MAJOR REDESIGN**: Changed from binary "he lligat" checkbox to competitive number counter
+- **New concept**: Each candidate has a COUNT of how many times they've hooked up, not just yes/no
+- **Prisma database**: Added Candidate and ActivityLog models for server-side persistence
+- **API routes**: Created `/api/candidates` (GET + seed) and `/api/candidates/[id]` (PATCH) and `/api/activity` (GET)
+- **Shared access**: Data stored in SQLite database so ALL friends see the same data
+- **Auto-refresh**: Page fetches latest data every 10 seconds so friends see each other's changes in real-time
+- **New title**: "Qui lliga més aquest estiu?" (Who hooks up more this summer?)
+- **New features**:
+  - ➕/➖ increment/decrement buttons on photo cards and leaderboard rows
+  - 🔢 Number input modal for direct count editing (click the count button)
+  - 🏆 Leaderboard sorted by count (highest first) with progress bars
+  - 👑 Crown animation for #1 position
+  - 🥇🥈🥉 Podium visualization showing top 3 with photos
+  - 📊 Group stats: Total lligues, Mitjana (average), Actius (active count), Líder
+  - 🔄 Auto-refresh every 10 seconds for multi-user access
+  - 📋 Share button exports formatted leaderboard with emojis
+  - 🎉 Confetti + toast when someone takes #1 spot
+  - 💬 Dynamic Catalan motivational messages based on total count
+  - 📖 "Com funciona?" rules card
+- **Bug fixed**: Rapid increment/decrement clicks now work correctly using functional setState updates instead of stale closure reads
+- **Database schema**: Candidate (id, name, nickname, photo, lligatCount, order), ActivityLog (id, personId, personName, action, value, createdAt)
+- Removed unused imports (Volume2, VolumeX, soundEnabled, etc.)
 
 Stage Summary:
-- All bugs fixed, lint passes clean
-- Major feature and styling additions
-
----
-
-Task ID: 3
-Agent: Review Agent (Cron) - Round 2
-Task: QA test, add dark mode, share, activity timeline, select-all/deselect, polish
-
-Work Log:
-- Performed full QA testing via agent-browser on existing features - all working
-- **LINT FIXED**: Dark mode initialization via lazy useState instead of useEffect setState
-- Added new features:
-  - **🌙 Dark mode toggle**: Sun/Moon button toggles dark mode with smooth transition, persists to localStorage
-  - **📋 Share/Export**: "Compartir" button copies formatted summary to clipboard with emoji formatting
-  - **⏱️ Activity Timeline**: Collapsible panel showing who lligat/desfer with relative timestamps ("fa 5min", "ara mateix")
-  - **✅ Select All / ❌ Deselect All**: Bulk action buttons in checklist header
-  - **🕐 Time-ago timestamps**: Leaderboard and checklist show relative times (ara mateix, fa Xmin, fa Xh, fa Xd)
-  - **🔔 Enhanced toasts**: Now show on individual lligat actions ("Ian ha lligat! 💪") and celebration ("Tots han lligat! 🎉")
-  - **💡 Tooltips**: Action buttons have tooltip descriptions
-- Improved styling:
-  - **Animated flame icons**: Gentle rotation animation on header flames
-  - **Dark mode transitions**: All elements (background, cards, borders) smoothly transition colors
-  - **Better mobile layout**: Compact button labels hidden on mobile, visible on desktop
-  - **Refined card sizing**: Slightly more compact cards with better proportions
-  - **Motivation levels**: Motivational messages now have color-coded backgrounds based on progress level
-  - **Leaderboard timestamps**: Shows when each person was marked
-  - **Checklist time info**: Shows nickname + time ago when checked
-  - **Disabled states**: Select All disabled when all checked, Deselect All disabled when none checked
-  - **Activity panel**: Gradient blue top bar, collapsible with chevron toggle
-- Updated localStorage key to 'objetciu-liarse-state-v3' for new schema
-- Added 'objetciu-activity-v1' localStorage key for activity log (max 50 entries)
-- Cleaned up unused imports (Volume2, VolumeX removed)
-
-Stage Summary:
-- All QA tests pass: checkbox toggle, photo card click, reset, select all, deselect all, dark mode, share, activity timeline
-- Lint passes clean with no errors
-- 6 new features added: dark mode, share, activity timeline, select/deselect all, time-ago timestamps, enhanced toasts
-- Significant styling polish: transitions, animations, tooltips, motivation levels
-- App is feature-complete and production-ready
+- Complete redesign from checkbox tracker to competitive counter leaderboard
+- Prisma + SQLite for shared persistence (all friends see same data)
+- Auto-refresh for multi-user real-time collaboration
+- All QA tests pass: increment, decrement, reset, total counter, leaderboard sorting, share
+- Lint passes clean
 
 ## Unresolved Issues / Risks
 
-- Hydration mismatch: useState lazy initializer reads localStorage on client but server renders with INITIAL_PEOPLE. React handles this gracefully for client components but may cause a brief flash.
-- Clipboard API may not work in all headless/incognito browsers (tested share button works in normal browsers)
-- Sound effects feature was planned but not implemented (soundEnabled state exists but no audio playback)
+- Rapid API calls on fast clicks could cause race conditions on the server side - current implementation uses optimistic updates which mostly handles this
+- No authentication - anyone can modify counts (by design for friend group use)
+- Auto-refresh is polling-based (10s interval) rather than WebSocket-based for simplicity
 
 ## Priority Recommendations for Next Phase
 
-- Add actual sound effects using Web Audio API or audio files
-- Add Prisma database for cross-device persistence
-- Add more tracker columns (e.g., "Data", "On", "Puntuació")
-- Add undo functionality (Ctrl+Z)
-- Add keyboard shortcuts for power users
-- Consider adding a "streak" counter showing consecutive days of activity
+- Add WebSocket for real-time updates instead of polling
+- Add "undo last action" button
+- Add individual candidate detail view with history
+- Add date tracking for when each count was incremented
+- Consider adding comments/reactions

@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Tooltip,
   TooltipContent,
@@ -14,79 +14,29 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Flame, Trophy, PartyPopper, Heart, RotateCcw,
-  Star, Zap, TrendingUp, Crown, Sparkles, Target,
-  Moon, Sun, Share2, Clock, CheckCheck, X as XIcon,
-  Volume2, VolumeX, ChevronDown, ChevronUp, Timer
+  Star, Zap, Crown, Sparkles,
+  Moon, Sun, Share2, Clock,
+  ChevronUp, TrendingUp, Medal, Users, Hash,
+  ArrowUp, ArrowDown, Minus, RefreshCw, King
 } from 'lucide-react'
 
 /* ─── Types ─── */
-interface Person {
+interface Candidate {
   id: string
   name: string
-  photo: string
   nickname: string
-  heLligat: boolean
-  lligatAt: number | null
+  photo: string
+  lligatCount: number
+  order: number
 }
 
 interface ActivityEntry {
   id: string
   personId: string
   personName: string
-  action: 'lligat' | 'desfer'
-  timestamp: number
-}
-
-/* ─── Constants ─── */
-const INITIAL_PEOPLE: Person[] = [
-  { id: 'ian', name: 'Ian', photo: '/photos/ian.png', nickname: 'El Conqueridor', heLligat: false, lligatAt: null },
-  { id: 'putraskito', name: 'Putraskito', photo: '/photos/putraskito.png', nickname: 'El Temerari', heLligat: false, lligatAt: null },
-  { id: 'pol', name: 'Pol', photo: '/photos/pol.png', nickname: 'El Romantico', heLligat: false, lligatAt: null },
-  { id: 'rui', name: 'Rui', photo: '/photos/rui.png', nickname: 'El Foc', heLligat: false, lligatAt: null },
-  { id: 'clone', name: 'Clone', photo: '/photos/clone.png', nickname: 'El Doble', heLligat: false, lligatAt: null },
-  { id: 'dani', name: 'Dani', photo: '/photos/dani.png', nickname: 'El Suau', heLligat: false, lligatAt: null },
-  { id: 'max', name: 'Max', photo: '/photos/max.png', nickname: 'El Max', heLligat: false, lligatAt: null },
-  { id: 'debig', name: 'Debig', photo: '/photos/debig.png', nickname: 'El Gran', heLligat: false, lligatAt: null },
-  { id: 'baldo', name: 'Baldo', photo: '/photos/baldo.png', nickname: 'El Valent', heLligat: false, lligatAt: null },
-  { id: 'roki', name: 'Roki', photo: '/photos/roki.png', nickname: 'El Roca', heLligat: false, lligatAt: null },
-]
-
-const STORAGE_KEY = 'objetciu-liarse-state-v3'
-const ACTIVITY_KEY = 'objetciu-activity-v1'
-
-/* ─── State persistence ─── */
-function loadState(): Person[] {
-  if (typeof window === 'undefined') return INITIAL_PEOPLE
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) {
-      const parsed = JSON.parse(saved) as Person[]
-      return INITIAL_PEOPLE.map((p) => {
-        const s = parsed.find((x) => x.id === p.id)
-        return { ...p, heLligat: s?.heLligat ?? false, lligatAt: s?.lligatAt ?? null }
-      })
-    }
-  } catch { /* ignore */ }
-  return INITIAL_PEOPLE
-}
-
-function saveState(people: Person[]) {
-  if (typeof window === 'undefined') return
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(people)) } catch { /* ignore */ }
-}
-
-function loadActivity(): ActivityEntry[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const saved = localStorage.getItem(ACTIVITY_KEY)
-    if (saved) return JSON.parse(saved) as ActivityEntry[]
-  } catch { /* ignore */ }
-  return []
-}
-
-function saveActivity(entries: ActivityEntry[]) {
-  if (typeof window === 'undefined') return
-  try { localStorage.setItem(ACTIVITY_KEY, JSON.stringify(entries.slice(0, 50))) } catch { /* ignore */ }
+  action: string
+  value: number
+  createdAt: string
 }
 
 /* ─── Confetti ─── */
@@ -94,12 +44,12 @@ function Confetti() {
   const colors = ['#f97316', '#ef4444', '#ec4899', '#eab308', '#22c55e', '#8b5cf6', '#06b6d4']
   return (
     <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
-      {Array.from({ length: 80 }).map((_, i) => {
+      {Array.from({ length: 100 }).map((_, i) => {
         const color = colors[i % colors.length]
         const left = Math.random() * 100
-        const delay = Math.random() * 2.5
-        const duration = 2 + Math.random() * 3
-        const size = 5 + Math.random() * 10
+        const delay = Math.random() * 2
+        const duration = 2.5 + Math.random() * 3
+        const size = 6 + Math.random() * 10
         const isCircle = Math.random() > 0.5
         return (
           <motion.div
@@ -107,7 +57,7 @@ function Confetti() {
             initial={{ y: -30, x: 0, rotate: 0, opacity: 1 }}
             animate={{
               y: typeof window !== 'undefined' ? window.innerHeight + 60 : 1000,
-              x: (Math.random() - 0.5) * 300,
+              x: (Math.random() - 0.5) * 400,
               rotate: 360 + Math.random() * 720,
               opacity: 0,
             }}
@@ -128,18 +78,18 @@ function Confetti() {
 function FloatingParticles() {
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-      {Array.from({ length: 25 }).map((_, i) => {
-        const size = 2 + Math.random() * 8
+      {Array.from({ length: 20 }).map((_, i) => {
+        const size = 2 + Math.random() * 7
         const left = Math.random() * 100
-        const delay = Math.random() * 12
-        const duration = 18 + Math.random() * 25
-        const colors = ['bg-orange-300/20', 'bg-rose-300/15', 'bg-amber-300/20', 'bg-yellow-300/15', 'bg-pink-300/10']
+        const delay = Math.random() * 15
+        const duration = 20 + Math.random() * 25
+        const colors = ['bg-orange-300/15', 'bg-rose-300/10', 'bg-amber-300/15', 'bg-yellow-300/10']
         return (
           <motion.div
             key={i}
             className={`absolute rounded-full ${colors[i % colors.length]}`}
             style={{ width: size, height: size, left: `${left}%` }}
-            animate={{ y: ['-10vh', '110vh'], x: [0, (Math.random() - 0.5) * 120] }}
+            animate={{ y: ['-10vh', '110vh'], x: [0, (Math.random() - 0.5) * 100] }}
             transition={{ duration, delay, repeat: Infinity, ease: 'linear' }}
           />
         )
@@ -183,8 +133,8 @@ function ToastContainer({ toasts }: { toasts: ToastData[] }) {
 }
 
 /* ─── Utility ─── */
-function timeAgo(timestamp: number): string {
-  const diff = Date.now() - timestamp
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
   const seconds = Math.floor(diff / 1000)
   if (seconds < 60) return 'ara mateix'
   const minutes = Math.floor(seconds / 60)
@@ -197,14 +147,8 @@ function timeAgo(timestamp: number): string {
 
 /* ─── Main Component ─── */
 export default function Home() {
-  const [people, setPeople] = useState<Person[]>(() => {
-    if (typeof window === 'undefined') return INITIAL_PEOPLE
-    return loadState()
-  })
-  const [activity, setActivity] = useState<ActivityEntry[]>(() => {
-    if (typeof window === 'undefined') return []
-    return loadActivity()
-  })
+  const [candidates, setCandidates] = useState<Candidate[]>([])
+  const [activity, setActivity] = useState<ActivityEntry[]>([])
   const [toasts, setToasts] = useState<ToastData[]>([])
   const [showConfetti, setShowConfetti] = useState(false)
   const [darkMode, setDarkMode] = useState(() => {
@@ -212,22 +156,55 @@ export default function Home() {
     return localStorage.getItem('objetciu-dark-mode') === 'true'
   })
   const [showTimeline, setShowTimeline] = useState(false)
-  const [soundEnabled, setSoundEnabled] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState<string>('')
   const toastId = useRef(0)
+  const prevTopId = useRef<string | null>(null)
 
-  // Apply dark mode
+  // Fetch data from API
+  const fetchData = useCallback(async () => {
+    try {
+      const [candRes, actRes] = await Promise.all([
+        fetch('/api/candidates'),
+        fetch('/api/activity'),
+      ])
+      const candData = await candRes.json()
+      const actData = await actRes.json()
+      setCandidates(candData)
+      setActivity(actData)
+    } catch {
+      // fallback: keep current state
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchData() }, [fetchData])
+
+  // Auto-refresh every 10 seconds (so friends see each other's changes)
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', darkMode)
-  }, [darkMode])
+    const interval = setInterval(fetchData, 10000)
+    return () => clearInterval(interval)
+  }, [fetchData])
 
-  // Save dark mode preference
+  // Dark mode
+  useEffect(() => { document.documentElement.classList.toggle('dark', darkMode) }, [darkMode])
+  useEffect(() => { localStorage.setItem('objetciu-dark-mode', String(darkMode)) }, [darkMode])
+
+  // Confetti when someone takes the #1 spot
   useEffect(() => {
-    localStorage.setItem('objetciu-dark-mode', String(darkMode))
-  }, [darkMode])
-
-  // Save state changes
-  useEffect(() => { saveState(people) }, [people])
-  useEffect(() => { saveActivity(activity) }, [activity])
+    const sorted = [...candidates].sort((a, b) => b.lligatCount - a.lligatCount)
+    if (sorted.length > 0 && sorted[0].lligatCount > 0) {
+      const newTopId = sorted[0].id
+      if (prevTopId.current !== null && prevTopId.current !== newTopId && sorted[0].lligatCount > 0) {
+        // New person took #1!
+        triggerConfetti()
+        addToast(`${sorted[0].name} és el nou líder! 👑`, 'warning')
+      }
+      prevTopId.current = newTopId
+    }
+  }, [candidates])
 
   const addToast = useCallback((message: string, type: 'success' | 'info' | 'warning' = 'info') => {
     const id = ++toastId.current
@@ -240,100 +217,136 @@ export default function Home() {
     setTimeout(() => setShowConfetti(false), 6000)
   }, [])
 
-  const toggleLligat = useCallback((id: string) => {
-    setPeople((prev) => {
-      const person = prev.find((p) => p.id === id)
-      if (!person) return prev
-      const newHeLligat = !person.heLligat
-      const next = prev.map((p) =>
-        p.id === id ? { ...p, heLligat: newHeLligat, lligatAt: newHeLligat ? Date.now() : null } : p
-      )
-      // Add activity entry
-      const entry: ActivityEntry = {
-        id: `${id}-${Date.now()}`,
-        personId: id,
-        personName: person.name,
-        action: newHeLligat ? 'lligat' : 'desfer',
-        timestamp: Date.now(),
-      }
-      setActivity((prev) => [entry, ...prev].slice(0, 50))
+  const updateCount = useCallback(async (id: string, newCount: number) => {
+    if (newCount < 0) newCount = 0
+    // Optimistic update
+    setCandidates((prev) => prev.map((c) => c.id === id ? { ...c, lligatCount: newCount } : c))
 
-      // Check all complete
-      if (newHeLligat && next.every((p) => p.heLligat)) {
-        setTimeout(() => triggerConfetti(), 50)
-        setTimeout(() => addToast('Tots han lligat! 🎉', 'warning'), 200)
-      } else if (newHeLligat) {
-        setTimeout(() => addToast(`${person.name} ha lligat! 💪`, 'success'), 100)
-      }
+    try {
+      await fetch(`/api/candidates/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lligatCount: newCount }),
+      })
+      // Refresh activity
+      const actRes = await fetch('/api/activity')
+      setActivity(await actRes.json())
+    } catch {
+      addToast('Error guardant', 'info')
+      fetchData() // rollback
+    }
+  }, [fetchData, addToast])
 
-      return next
+  const increment = useCallback((id: string) => {
+    setCandidates((prev) => {
+      const c = prev.find((c) => c.id === id)
+      if (!c) return prev
+      const newCount = c.lligatCount + 1
+      // Fire and forget API update
+      fetch(`/api/candidates/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lligatCount: newCount }),
+      }).then(() => {
+        fetch('/api/activity').then(r => r.json()).then(setActivity)
+      })
+      addToast(`${c.name} +1! 💪`, 'success')
+      return prev.map((p) => p.id === id ? { ...p, lligatCount: newCount } : p)
     })
-  }, [triggerConfetti, addToast])
-
-  const resetAll = useCallback(() => {
-    setPeople(INITIAL_PEOPLE)
-    setActivity([])
-    addToast('Tots reiniciats!', 'info')
   }, [addToast])
 
-  const selectAll = useCallback(() => {
-    setPeople((prev) => prev.map((p) => ({ ...p, heLligat: true, lligatAt: p.lligatAt ?? Date.now() })))
-    triggerConfetti()
-    addToast('Tots marcats!', 'warning')
-  }, [triggerConfetti, addToast])
+  const decrement = useCallback((id: string) => {
+    setCandidates((prev) => {
+      const c = prev.find((c) => c.id === id)
+      if (!c || c.lligatCount <= 0) return prev
+      const newCount = c.lligatCount - 1
+      fetch(`/api/candidates/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lligatCount: newCount }),
+      }).then(() => {
+        fetch('/api/activity').then(r => r.json()).then(setActivity)
+      })
+      return prev.map((p) => p.id === id ? { ...p, lligatCount: newCount } : p)
+    })
+  }, [])
 
-  const deselectAll = useCallback(() => {
-    setPeople((prev) => prev.map((p) => ({ ...p, heLligat: false, lligatAt: null })))
-    addToast('Tots desmarcats!', 'info')
-  }, [addToast])
+  const handleInputSubmit = useCallback((id: string) => {
+    const val = parseInt(editValue, 10)
+    if (!isNaN(val) && val >= 0) {
+      updateCount(id, val)
+      const c = candidates.find((c) => c.id === id)
+      if (c) addToast(`${c.name}: ${val} lligat${val !== 1 ? 's' : ''}`, 'success')
+    }
+    setEditingId(null)
+    setEditValue('')
+  }, [editValue, updateCount, candidates, addToast])
+
+  const resetAll = useCallback(async () => {
+    // Optimistic
+    setCandidates((prev) => prev.map((c) => ({ ...c, lligatCount: 0 })))
+    try {
+      await Promise.all(candidates.map((c) =>
+        fetch(`/api/candidates/${c.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lligatCount: 0 }),
+        })
+      ))
+      addToast('Tot reiniciat!', 'info')
+      fetchData()
+    } catch {
+      fetchData()
+    }
+  }, [candidates, fetchData, addToast])
 
   const shareSummary = useCallback(() => {
-    const lligats = people.filter((p) => p.heLligat).map((p) => p.name).join(', ')
-    const pendents = people.filter((p) => !p.heLligat).map((p) => p.name).join(', ')
-    const count = people.filter((p) => p.heLligat).length
-    const text = `🔥 Objetciu liar-se amb una aquest estiu 🔥\n\n✅ Han lligat (${count}): ${lligats || 'Ningú encara...'}\n⏳ Pendents (${10 - count}): ${pendents || 'Cap!'}\n\n📊 Progres: ${count}/10 (${Math.round((count / 10) * 100)}%)`
+    const sorted = [...candidates].sort((a, b) => b.lligatCount - a.lligatCount)
+    const lines = sorted.map((c, i) => {
+      const medal = i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  '
+      return `${medal} ${c.name}: ${c.lligatCount}`
+    }).join('\n')
+    const total = candidates.reduce((s, c) => s + c.lligatCount, 0)
+    const text = `🔥 CLASSIFICACIÓ LIGUES ESTIU 🔥\n\n${lines}\n\n📊 Total del grup: ${total} lligues\n\nActualitzat: ${new Date().toLocaleString('ca-ES')}`
     navigator.clipboard.writeText(text).then(() => {
-      addToast('Resum copiat al porta-retalls!', 'success')
+      addToast('Classificació copiada!', 'success')
     }).catch(() => {
       addToast('No s\'ha pogut copiar', 'info')
     })
-  }, [people, addToast])
+  }, [candidates, addToast])
 
-  const lligatCount = people.filter((p) => p.heLligat).length
-  const totalCount = people.length
-  const allLligat = lligatCount === totalCount
-  const noneLligat = lligatCount === 0
+  // Derived data
+  const sorted = [...candidates].sort((a, b) => b.lligatCount - a.lligatCount || a.order - b.order)
+  const totalLligues = candidates.reduce((s, c) => s + c.lligatCount, 0)
+  const avgLligues = candidates.length > 0 ? (totalLligues / candidates.length).toFixed(1) : '0'
+  const topCandidate = sorted[0]
+  const activeCount = candidates.filter((c) => c.lligatCount > 0).length
 
-  const leaderboard = [...people]
-    .filter((p) => p.heLligat)
-    .sort((a, b) => (a.lligatAt ?? Infinity) - (b.lligatAt ?? Infinity))
-
-  const getRankEmoji = (i: number) => {
-    if (i === 0) return '🥇'
+  const getRankDisplay = (i: number) => {
+    if (i === 0) return '👑'
     if (i === 1) return '🥈'
     if (i === 2) return '🥉'
-    return `#${i + 1}`
+    return `${i + 1}`
   }
 
-  const getMotivation = () => {
-    if (lligatCount === 0) return { text: 'Algú ha de ser el primer... 🤷', level: 0 }
-    if (lligatCount === 1) return { text: 'Ja hi ha un valent! Qui serà el segon? 💪', level: 1 }
-    if (lligatCount === 2) return { text: 'Es comença a moure el personal! 🔥', level: 2 }
-    if (lligatCount <= 4) return { text: 'Això s\'escalfa! Continuem! 🌡️', level: 3 }
-    if (lligatCount <= 6) return { text: 'Més de la meitat ja! A per totes! 🏃', level: 4 }
-    if (lligatCount <= 8) return { text: 'Ja quasi estan tots! L\'últim esforç! 🎯', level: 5 }
-    if (lligatCount === 9) return { text: 'Falta UN! Qui serà l\'últim? 😱', level: 6 }
-    return { text: 'OBJECTIU COMPLERT! 🏆🎉🎊', level: 7 }
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+          className="w-10 h-10"
+        >
+          <Flame className="w-10 h-10 text-orange-500" />
+        </motion.div>
+      </div>
+    )
   }
-
-  const motivation = getMotivation()
 
   return (
     <TooltipProvider delayDuration={300}>
       <div className={`min-h-screen flex flex-col relative transition-colors duration-500 ${
-        darkMode
-          ? 'bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950'
-          : 'bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50'
+        darkMode ? 'bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950' : 'bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50'
       }`}>
         <FloatingParticles />
         {showConfetti && <Confetti />}
@@ -341,76 +354,52 @@ export default function Home() {
 
         {/* Background blobs */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-          <div className={`absolute -top-40 -right-40 w-96 h-96 rounded-full blur-3xl transition-colors duration-700 ${
-            darkMode ? 'bg-orange-500/5' : 'bg-orange-200/20'
-          }`} />
-          <div className={`absolute top-1/3 -left-20 w-72 h-72 rounded-full blur-3xl transition-colors duration-700 ${
-            darkMode ? 'bg-yellow-500/5' : 'bg-yellow-200/20'
-          }`} />
-          <div className={`absolute -bottom-20 right-1/4 w-80 h-80 rounded-full blur-3xl transition-colors duration-700 ${
-            darkMode ? 'bg-rose-500/5' : 'bg-rose-200/15'
-          }`} />
+          <div className={`absolute -top-40 -right-40 w-96 h-96 rounded-full blur-3xl transition-colors duration-700 ${darkMode ? 'bg-orange-500/5' : 'bg-orange-200/20'}`} />
+          <div className={`absolute top-1/3 -left-20 w-72 h-72 rounded-full blur-3xl transition-colors duration-700 ${darkMode ? 'bg-yellow-500/5' : 'bg-yellow-200/20'}`} />
+          <div className={`absolute -bottom-20 right-1/4 w-80 h-80 rounded-full blur-3xl transition-colors duration-700 ${darkMode ? 'bg-rose-500/5' : 'bg-rose-200/15'}`} />
         </div>
 
         {/* ─── Header ─── */}
-        <header className="relative z-10 pt-5 sm:pt-8 pb-3 px-4">
+        <header className="relative z-10 pt-5 sm:pt-7 pb-3 px-4">
           <motion.div
             initial={{ opacity: 0, y: -30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, ease: 'easeOut' }}
             className="text-center max-w-5xl mx-auto"
           >
-            {/* Title */}
             <div className="flex items-center justify-center gap-2 sm:gap-3 mb-1.5">
-              <motion.div
-                animate={{ rotate: [0, 10, -10, 0] }}
-                transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
-              >
+              <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}>
                 <Flame className="w-6 h-6 sm:w-8 sm:h-8 text-orange-500" />
               </motion.div>
-              <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-orange-600 via-rose-500 to-pink-500 bg-clip-text text-transparent tracking-tight">
-                Objetciu liar-se amb una aquest estiu
+              <h1 className="text-xl sm:text-3xl md:text-5xl font-extrabold bg-gradient-to-r from-orange-600 via-rose-500 to-pink-500 bg-clip-text text-transparent tracking-tight">
+                Qui lliga més aquest estiu?
               </h1>
-              <motion.div
-                animate={{ rotate: [0, -10, 10, 0] }}
-                transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
-              >
+              <motion.div animate={{ rotate: [0, -10, 10, 0] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}>
                 <Flame className="w-6 h-6 sm:w-8 sm:h-8 text-orange-500" />
               </motion.div>
             </div>
 
             <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-3 italic">
-              &ldquo;Qui no ho intenta, no ho aconsegueix&rdquo;
+              &ldquo;El que compta és el nombre&rdquo; 🔥
             </p>
 
-            {/* Controls row */}
+            {/* Controls */}
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.3, duration: 0.5 }}
               className="flex flex-wrap items-center justify-center gap-2 sm:gap-3"
             >
-              {/* Score badge */}
+              {/* Total badge */}
               <div className={`inline-flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 backdrop-blur-md rounded-full shadow-lg border transition-colors duration-500 ${
-                darkMode
-                  ? 'bg-gray-800/70 border-gray-700'
-                  : 'bg-white/70 border-orange-100'
+                darkMode ? 'bg-gray-800/70 border-gray-700' : 'bg-white/70 border-orange-100'
               }`}>
                 <Trophy className="w-5 h-5 text-amber-500" />
-                <span className="text-lg font-bold text-gray-800 dark:text-gray-200">
-                  {lligatCount} / {totalCount}
-                </span>
-                <span className="text-sm text-gray-500 dark:text-gray-400">han lligat</span>
-                <AnimatePresence>
-                  {allLligat && (
-                    <motion.span initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0 }}>
-                      <PartyPopper className="w-5 h-5 text-green-500" />
-                    </motion.span>
-                  )}
-                </AnimatePresence>
+                <span className="text-lg font-bold text-gray-800 dark:text-gray-200">{totalLligues}</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">lligues totals</span>
               </div>
 
-              {/* Action buttons */}
+              {/* Buttons */}
               <div className="flex items-center gap-1.5">
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -420,7 +409,7 @@ export default function Home() {
                       <span className="hidden sm:inline">Compartir</span>
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Compartir resum</TooltipContent>
+                  <TooltipContent>Compartir classificació</TooltipContent>
                 </Tooltip>
 
                 <Tooltip>
@@ -430,10 +419,9 @@ export default function Home() {
                         showTimeline ? 'bg-orange-100 dark:bg-orange-900/30' : 'hover:bg-orange-50 dark:hover:bg-gray-700'
                       } text-gray-600 dark:text-gray-300`}>
                       <Clock className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Activitat</span>
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Veure activitat</TooltipContent>
+                  <TooltipContent>Activitat recent</TooltipContent>
                 </Tooltip>
 
                 <Tooltip>
@@ -453,14 +441,14 @@ export default function Home() {
                       <RotateCcw className="w-3.5 h-3.5" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>Reiniciar tot</TooltipContent>
+                  <TooltipContent>Reiniciar tot a 0</TooltipContent>
                 </Tooltip>
               </div>
             </motion.div>
           </motion.div>
         </header>
 
-        {/* ─── Activity Timeline (collapsible) ─── */}
+        {/* ─── Activity Timeline ─── */}
         <AnimatePresence>
           {showTimeline && activity.length > 0 && (
             <motion.div
@@ -469,33 +457,29 @@ export default function Home() {
               exit={{ opacity: 0, height: 0 }}
               className="relative z-10 px-4 max-w-7xl mx-auto w-full overflow-hidden"
             >
-              <Card className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-orange-100/80 dark:border-gray-800/80 shadow-lg overflow-hidden">
+              <Card className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-orange-100/80 dark:border-gray-800/80 shadow-lg overflow-hidden mb-4">
                 <div className="h-1 bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-400" />
                 <CardContent className="p-3 sm:p-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <Timer className="w-4 h-4 text-cyan-500" />
-                    <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">Registre d&apos;Activitat</h3>
+                    <Clock className="w-4 h-4 text-cyan-500" />
+                    <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">Activitat Recent</h3>
                     <Button variant="ghost" size="sm" onClick={() => setShowTimeline(false)} className="ml-auto h-6 w-6 p-0">
                       <ChevronUp className="w-3.5 h-3.5" />
                     </Button>
                   </div>
-                  <div className="max-h-40 overflow-y-auto custom-scrollbar space-y-1">
+                  <div className="max-h-36 overflow-y-auto custom-scrollbar space-y-1">
                     {activity.slice(0, 20).map((entry) => (
-                      <motion.div
-                        key={entry.id}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className={`flex items-center gap-2 text-xs py-1 px-2 rounded-lg ${
-                          entry.action === 'lligat'
-                            ? 'bg-green-50/60 dark:bg-green-900/15 text-green-700 dark:text-green-400'
-                            : 'bg-red-50/60 dark:bg-red-900/15 text-red-600 dark:text-red-400'
-                        }`}
-                      >
-                        {entry.action === 'lligat' ? <Heart className="w-3 h-3" /> : <XIcon className="w-3 h-3" />}
+                      <div key={entry.id} className={`flex items-center gap-2 text-xs py-1 px-2 rounded-lg ${
+                        entry.action === 'increment'
+                          ? 'bg-green-50/60 dark:bg-green-900/15 text-green-700 dark:text-green-400'
+                          : 'bg-red-50/60 dark:bg-red-900/15 text-red-600 dark:text-red-400'
+                      }`}>
+                        {entry.action === 'increment' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
                         <span className="font-medium">{entry.personName}</span>
-                        <span>{entry.action === 'lligat' ? 'ha lligat' : 's\'ha desfet'}</span>
-                        <span className="ml-auto text-[10px] opacity-60">{timeAgo(entry.timestamp)}</span>
-                      </motion.div>
+                        <span>{entry.action === 'increment' ? '+1' : '-1'}</span>
+                        <span className="text-[10px]">→ {entry.value}</span>
+                        <span className="ml-auto text-[10px] opacity-60">{timeAgo(entry.createdAt)}</span>
+                      </div>
                     ))}
                   </div>
                 </CardContent>
@@ -510,9 +494,9 @@ export default function Home() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.6 }}
-            className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 mt-4"
+            className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5"
           >
-            {/* ─── Left: Candidates Grid ─── */}
+            {/* ─── Left: Candidates with counters ─── */}
             <div className="lg:col-span-5">
               <Card className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-orange-100/80 dark:border-gray-800/80 shadow-xl overflow-hidden">
                 <div className="h-1.5 bg-gradient-to-r from-orange-400 via-rose-400 to-pink-500" />
@@ -521,215 +505,251 @@ export default function Home() {
                     <Heart className="w-5 h-5 text-rose-500" />
                     <h2 className="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-200">Els Candidates</h2>
                     <span className="ml-auto text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">
-                      {totalCount} persones
+                      {candidates.length} persones
                     </span>
                   </div>
                   <Separator className="mb-3 bg-orange-100 dark:bg-gray-700" />
+
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-2.5">
-                    {people.map((person, index) => (
-                      <motion.div
-                        key={person.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.06 * index, duration: 0.4 }}
-                        whileHover={{ scale: 1.04, y: -2 }}
-                        whileTap={{ scale: 0.96 }}
-                        onClick={() => toggleLligat(person.id)}
-                        className={`cursor-pointer relative group rounded-2xl overflow-hidden transition-all duration-300 ${
-                          person.heLligat
-                            ? 'ring-2 ring-green-400 dark:ring-green-500 shadow-lg shadow-green-200/40 dark:shadow-green-500/20'
-                            : 'ring-1 ring-gray-200/80 dark:ring-gray-700/80 hover:ring-orange-300 dark:hover:ring-orange-600 hover:shadow-md'
-                        }`}
-                      >
-                        <div className="aspect-square relative">
-                          <img
-                            src={person.photo}
-                            alt={person.name}
-                            className={`w-full h-full object-cover transition-all duration-500 ${
-                              person.heLligat ? 'brightness-110 saturate-150' : 'brightness-95 group-hover:brightness-100'
-                            }`}
-                          />
-                          {/* Hover overlay */}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    {candidates.map((person, index) => {
+                      const rank = sorted.findIndex((s) => s.id === person.id)
+                      return (
+                        <motion.div
+                          key={person.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.06 * index, duration: 0.4 }}
+                          whileHover={{ scale: 1.03, y: -2 }}
+                          className={`relative group rounded-2xl overflow-hidden transition-all duration-300 ${
+                            rank === 0 && person.lligatCount > 0
+                              ? 'ring-2 ring-amber-400 dark:ring-amber-500 shadow-lg shadow-amber-200/40 dark:shadow-amber-500/20'
+                              : person.lligatCount > 0
+                              ? 'ring-2 ring-green-400/60 dark:ring-green-500/40 shadow-md'
+                              : 'ring-1 ring-gray-200/80 dark:ring-gray-700/80'
+                          }`}
+                        >
+                          <div className="aspect-square relative">
+                            <img
+                              src={person.photo}
+                              alt={person.name}
+                              className={`w-full h-full object-cover transition-all duration-500 ${
+                                rank === 0 && person.lligatCount > 0 ? 'brightness-110 saturate-150' : person.lligatCount > 0 ? 'brightness-105 saturate-120' : 'brightness-90'
+                              }`}
+                            />
 
-                          {/* Hover action hint */}
-                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                            <div className={`px-3 py-1.5 rounded-full text-xs font-bold shadow-lg backdrop-blur-sm transition-colors ${
-                              person.heLligat ? 'bg-red-500/80 text-white' : 'bg-green-500/80 text-white'
-                            }`}>
-                              {person.heLligat ? 'Desfer ✕' : 'Lligat! ✓'}
+                            {/* Rank badge */}
+                            {person.lligatCount > 0 && (
+                              <div className={`absolute top-1.5 left-1.5 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-lg ${
+                                rank === 0 ? 'bg-amber-400 text-amber-900' : rank === 1 ? 'bg-gray-300 text-gray-700' : rank === 2 ? 'bg-orange-400 text-orange-900' : 'bg-black/50 text-white'
+                              }`}>
+                                {rank + 1}
+                              </div>
+                            )}
+
+                            {/* Count display */}
+                            <div className="absolute top-1.5 right-1.5">
+                              <motion.div
+                                key={person.lligatCount}
+                                initial={{ scale: 1.4 }}
+                                animate={{ scale: 1 }}
+                                className={`px-2 py-0.5 rounded-full text-sm font-extrabold shadow-lg ${
+                                  person.lligatCount > 0
+                                    ? 'bg-green-500 text-white'
+                                    : 'bg-black/40 text-white/70'
+                                }`}>
+                                {person.lligatCount}
+                              </motion.div>
                             </div>
+
+                            {/* Bottom overlay with name + counter */}
+                            <div className="absolute bottom-0 left-0 right-0 p-1.5 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
+                              <p className="text-xs sm:text-sm font-bold text-white truncate">
+                                {person.name}
+                              </p>
+                              {/* Inline counter buttons */}
+                              <div className="flex items-center gap-1 mt-1">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); decrement(person.id) }}
+                                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                                    person.lligatCount > 0
+                                      ? 'bg-red-500/80 hover:bg-red-600 text-white'
+                                      : 'bg-white/20 text-white/40 cursor-not-allowed'
+                                  }`}
+                                >
+                                  −
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setEditingId(person.id); setEditValue(String(person.lligatCount)) }}
+                                  className="flex-1 h-6 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition-colors flex items-center justify-center"
+                                >
+                                  {person.lligatCount} lligat{person.lligatCount !== 1 ? 's' : ''}
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); increment(person.id) }}
+                                  className="w-6 h-6 rounded-full bg-green-500/80 hover:bg-green-600 text-white text-xs font-bold transition-colors flex items-center justify-center"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Crown for #1 */}
+                            <AnimatePresence>
+                              {rank === 0 && person.lligatCount > 0 && (
+                                <motion.div
+                                  initial={{ y: -20, opacity: 0 }}
+                                  animate={{ y: 0, opacity: 1 }}
+                                  exit={{ y: -20, opacity: 0 }}
+                                  className="absolute -top-0 left-1/2 -translate-x-1/2 -translate-y-1"
+                                >
+                                  <Crown className="w-6 h-6 text-amber-400 drop-shadow-lg" />
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
                           </div>
-
-                          {/* Lligat badge */}
-                          <AnimatePresence>
-                            {person.heLligat && (
-                              <motion.div
-                                initial={{ scale: 0, rotate: -180 }}
-                                animate={{ scale: 1, rotate: 0 }}
-                                exit={{ scale: 0, rotate: 180 }}
-                                className="absolute top-1.5 right-1.5 bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg shadow-green-500/40"
-                              >
-                                <span className="text-[10px] font-bold">✓</span>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-
-                          {/* Heart */}
-                          <AnimatePresence>
-                            {person.heLligat && (
-                              <motion.div
-                                initial={{ opacity: 0, scale: 0 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0 }}
-                                className="absolute top-1.5 left-1.5"
-                              >
-                                <Heart className="w-4 h-4 text-rose-500 fill-rose-500 drop-shadow-lg" />
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-
-                          {/* Name */}
-                          <div className="absolute bottom-0 left-0 right-0 p-1.5 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
-                            <p className={`text-xs sm:text-sm font-bold text-white truncate ${person.heLligat ? 'drop-shadow-[0_0_8px_rgba(34,197,94,0.8)]' : ''}`}>
-                              {person.name}
-                            </p>
-                            {person.heLligat && (
-                              <motion.p
-                                initial={{ opacity: 0, y: 4 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="text-[9px] text-green-300 truncate font-medium"
-                              >
-                                {person.nickname}
-                              </motion.p>
-                            )}
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))}
+                        </motion.div>
+                      )
+                    })}
                   </div>
                 </CardContent>
               </Card>
             </div>
 
-            {/* ─── Middle: Checklist ─── */}
+            {/* ─── Middle: Leaderboard ─── */}
             <div className="lg:col-span-4">
               <Card className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-orange-100/80 dark:border-gray-800/80 shadow-xl overflow-hidden">
-                <div className="h-1.5 bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400" />
+                <div className="h-1.5 bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400" />
                 <CardContent className="p-4 sm:p-5">
                   <div className="flex items-center gap-2 mb-3">
-                    <Target className="w-5 h-5 text-orange-500" />
-                    <h2 className="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-200">He lligat:</h2>
+                    <Crown className="w-5 h-5 text-amber-500" />
+                    <h2 className="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-200">Classificació</h2>
+                    <span className="ml-auto text-[10px] text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                      <RefreshCw className="w-3 h-3" /> auto-refresh
+                    </span>
                   </div>
                   <Separator className="mb-3 bg-orange-100 dark:bg-gray-700" />
 
-                  {/* Bulk actions */}
-                  <div className="flex items-center gap-2 mb-3">
-                    <Button
-                      variant="ghost" size="sm"
-                      onClick={selectAll}
-                      disabled={allLligat}
-                      className="h-7 text-[11px] text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 gap-1 px-2"
-                    >
-                      <CheckCheck className="w-3 h-3" /> Tots
-                    </Button>
-                    <Button
-                      variant="ghost" size="sm"
-                      onClick={deselectAll}
-                      disabled={noneLligat}
-                      className="h-7 text-[11px] text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 gap-1 px-2"
-                    >
-                      <XIcon className="w-3 h-3" /> Cap
-                    </Button>
-                    <span className="ml-auto text-[11px] text-gray-400 dark:text-gray-500">
-                      {lligatCount} de {totalCount}
-                    </span>
-                  </div>
-
-                  {/* People checklist */}
-                  <div className="space-y-1 max-h-[440px] overflow-y-auto pr-1 custom-scrollbar">
-                    {people.map((person, index) => (
-                      <motion.div
-                        key={person.id}
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.04 * index, duration: 0.3 }}
-                        className={`flex items-center gap-2.5 p-2.5 rounded-xl transition-all duration-300 cursor-pointer group/row ${
-                          person.heLligat
-                            ? 'bg-green-50/80 dark:bg-green-900/20 border border-green-200/60 dark:border-green-800/60'
-                            : 'hover:bg-orange-50/50 dark:hover:bg-gray-800/30 border border-transparent'
-                        }`}
-                        onClick={() => toggleLligat(person.id)}
-                      >
-                        <div className={`relative w-9 h-9 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-offset-1.5 transition-all duration-300 ${
-                          person.heLligat
-                            ? 'ring-green-400 dark:ring-green-500 ring-offset-green-50 dark:ring-offset-gray-900'
-                            : 'ring-gray-200 dark:ring-gray-600 group-hover/row:ring-orange-300 dark:group-hover/row:ring-orange-600 ring-offset-orange-50 dark:ring-offset-gray-900'
-                        }`}>
-                          <img src={person.photo} alt={person.name} className="w-full h-full object-cover" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <span className={`block font-semibold text-sm transition-colors duration-300 ${
-                            person.heLligat ? 'text-green-700 dark:text-green-400' : 'text-gray-700 dark:text-gray-300'
-                          }`}>
-                            {person.name}
-                          </span>
-                          {person.heLligat && (
-                            <motion.span
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              className="block text-[10px] text-green-500/80 dark:text-green-500/60 font-medium"
-                            >
-                              {person.nickname} · {person.lligatAt ? timeAgo(person.lligatAt) : ''}
-                            </motion.span>
-                          )}
-                        </div>
-                        <Checkbox
-                          checked={person.heLligat}
-                          onClick={(e) => e.stopPropagation()}
-                          onCheckedChange={() => toggleLligat(person.id)}
-                          className={`w-5 h-5 transition-all duration-300 flex-shrink-0 ${
-                            person.heLligat
-                              ? 'data-[state=checked]:bg-green-500 data-[state=checked]:border-green-500'
-                              : 'border-gray-300 dark:border-gray-600'
-                          }`}
-                        />
+                  {sorted.every((c) => c.lligatCount === 0) ? (
+                    <div className="text-center py-8">
+                      <motion.div animate={{ y: [0, -5, 0] }} transition={{ duration: 2, repeat: Infinity }}>
+                        <Sparkles className="w-8 h-8 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
                       </motion.div>
-                    ))}
-                  </div>
-
-                  {/* Progress */}
-                  <div className="mt-4">
-                    <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1.5">
-                      <span className="flex items-center gap-1">
-                        <TrendingUp className="w-3 h-3" /> Progres
-                      </span>
-                      <span className="font-bold">{Math.round((lligatCount / totalCount) * 100)}%</span>
+                      <p className="text-sm text-gray-400 dark:text-gray-500 italic">Encara ningú ha lligat...</p>
+                      <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">Sigues el primer! Suma +1 💪</p>
                     </div>
-                    <div className="w-full bg-gray-200/80 dark:bg-gray-700/80 rounded-full h-2.5 overflow-hidden">
-                      <motion.div
-                        className="h-full rounded-full bg-gradient-to-r from-orange-400 via-rose-400 to-pink-500 relative"
-                        initial={{ width: 0 }}
-                        animate={{ width: `${(lligatCount / totalCount) * 100}%` }}
-                        transition={{ duration: 0.5, ease: 'easeOut' }}
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
-                      </motion.div>
-                    </div>
-                  </div>
+                  ) : (
+                    <div className="space-y-2 max-h-[560px] overflow-y-auto custom-scrollbar">
+                      {sorted.map((person, index) => {
+                        const maxCount = sorted[0]?.lligatCount || 1
+                        const barWidth = maxCount > 0 ? (person.lligatCount / maxCount) * 100 : 0
+                        return (
+                          <motion.div
+                            key={person.id}
+                            layout
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.03 * index }}
+                            className={`relative flex items-center gap-2.5 p-2.5 rounded-xl transition-all duration-500 ${
+                              index === 0
+                                ? 'bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/50 dark:border-amber-800/50'
+                                : index === 1
+                                ? 'bg-gray-50/80 dark:bg-gray-800/30 border border-gray-200/50 dark:border-gray-700/50'
+                                : index === 2
+                                ? 'bg-orange-50/80 dark:bg-orange-900/15 border border-orange-200/50 dark:border-orange-800/50'
+                                : 'border border-transparent hover:bg-orange-50/30 dark:hover:bg-gray-800/20'
+                            }`}
+                          >
+                            {/* Rank */}
+                            <span className="text-lg w-8 text-center flex-shrink-0">{getRankDisplay(index)}</span>
 
-                  {/* Celebration */}
+                            {/* Photo */}
+                            <div className={`relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ${
+                              index === 0 ? 'ring-2 ring-amber-400' : 'ring-1 ring-gray-200 dark:ring-gray-700'
+                            }`}>
+                              <img src={person.photo} alt={person.name} className="w-full h-full object-cover" />
+                            </div>
+
+                            {/* Name + bar */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-baseline gap-1.5">
+                                <p className="text-sm font-bold text-gray-700 dark:text-gray-300 truncate">{person.name}</p>
+                                <p className="text-[10px] text-gray-400 dark:text-gray-500">{person.nickname}</p>
+                              </div>
+                              {/* Progress bar */}
+                              {person.lligatCount > 0 && (
+                                <div className="mt-1 h-1.5 w-full bg-gray-200/60 dark:bg-gray-700/40 rounded-full overflow-hidden">
+                                  <motion.div
+                                    className="h-full rounded-full bg-gradient-to-r from-orange-400 to-rose-400"
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${barWidth}%` }}
+                                    transition={{ duration: 0.6, ease: 'easeOut' }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Count + buttons */}
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <button
+                                onClick={() => decrement(person.id)}
+                                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
+                                  person.lligatCount > 0
+                                    ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50'
+                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                                }`}
+                              >
+                                −
+                              </button>
+                              <motion.span
+                                key={person.lligatCount}
+                                initial={{ scale: 1.3 }}
+                                animate={{ scale: 1 }}
+                                className="w-8 text-center text-lg font-extrabold text-gray-800 dark:text-gray-200"
+                              >
+                                {person.lligatCount}
+                              </motion.span>
+                              <button
+                                onClick={() => increment(person.id)}
+                                className="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 flex items-center justify-center text-xs font-bold transition-colors"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </motion.div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* Direct number input */}
                   <AnimatePresence>
-                    {allLligat && (
+                    {editingId && (
                       <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="mt-3 p-3 bg-gradient-to-r from-green-100/80 to-emerald-100/80 dark:from-green-900/30 dark:to-emerald-900/30 rounded-xl border border-green-200/60 dark:border-green-800/60 text-center backdrop-blur-sm"
+                        exit={{ opacity: 0, y: 10 }}
+                        className="mt-3 p-3 bg-orange-50/80 dark:bg-orange-900/20 rounded-xl border border-orange-200/50 dark:border-orange-800/50"
                       >
-                        <PartyPopper className="w-7 h-7 text-green-600 mx-auto mb-1" />
-                        <p className="text-green-700 dark:text-green-400 font-bold">Tots han lligat! 🎉</p>
-                        <p className="text-green-600 dark:text-green-500 text-xs">Objectiu complert!</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                          Editar comptador de <strong>{candidates.find((c) => c.id === editingId)?.name}</strong>:
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') handleInputSubmit(editingId!) }}
+                            className="h-8 text-center font-bold"
+                            autoFocus
+                          />
+                          <Button size="sm" onClick={() => handleInputSubmit(editingId!)} className="bg-green-500 hover:bg-green-600 text-white">
+                            ✓
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => { setEditingId(null); setEditValue('') }}>
+                            ✕
+                          </Button>
+                        </div>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -737,68 +757,9 @@ export default function Home() {
               </Card>
             </div>
 
-            {/* ─── Right: Leaderboard + Stats ─── */}
-            <div className="lg:col-span-3 space-y-4 sm:space-y-5">
-              {/* Leaderboard */}
-              <Card className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-orange-100/80 dark:border-gray-800/80 shadow-xl overflow-hidden">
-                <div className="h-1.5 bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400" />
-                <CardContent className="p-4 sm:p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Crown className="w-5 h-5 text-amber-500" />
-                    <h2 className="text-base sm:text-lg font-bold text-gray-800 dark:text-gray-200">Classificació</h2>
-                  </div>
-                  <Separator className="mb-3 bg-orange-100 dark:bg-gray-700" />
-
-                  {leaderboard.length === 0 ? (
-                    <div className="text-center py-5">
-                      <motion.div
-                        animate={{ y: [0, -5, 0] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                      >
-                        <Sparkles className="w-7 h-7 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-                      </motion.div>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 italic">Encara ningú ha lligat...</p>
-                      <p className="text-[10px] text-gray-300 dark:text-gray-600 mt-0.5">Sigues el primer!</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-1.5 max-h-[260px] overflow-y-auto custom-scrollbar">
-                      {leaderboard.map((person, index) => (
-                        <motion.div
-                          key={person.id}
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: 0.04 * index }}
-                          className={`flex items-center gap-2 p-1.5 rounded-lg transition-colors ${
-                            index === 0
-                              ? 'bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/50 dark:border-amber-800/50'
-                              : index === 1
-                              ? 'bg-gray-50/80 dark:bg-gray-800/30 border border-gray-200/50 dark:border-gray-700/50'
-                              : index === 2
-                              ? 'bg-orange-50/80 dark:bg-orange-900/15 border border-orange-200/50 dark:border-orange-800/50'
-                              : ''
-                          }`}
-                        >
-                          <span className="text-base w-7 text-center flex-shrink-0">{getRankEmoji(index)}</span>
-                          <div className="relative w-7 h-7 rounded-full overflow-hidden flex-shrink-0 ring-1 ring-gray-200 dark:ring-gray-700">
-                            <img src={person.photo} alt={person.name} className="w-full h-full object-cover" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-gray-700 dark:text-gray-300 truncate">{person.name}</p>
-                            <p className="text-[9px] text-gray-400 dark:text-gray-500 truncate">{person.nickname}</p>
-                          </div>
-                          {person.lligatAt && (
-                            <span className="text-[9px] text-gray-400 dark:text-gray-600 flex-shrink-0">
-                              {timeAgo(person.lligatAt)}
-                            </span>
-                          )}
-                        </motion.div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Stats */}
+            {/* ─── Right: Stats ─── */}
+            <div className="lg:col-span-3 space-y-4">
+              {/* Group Stats */}
               <Card className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-orange-100/80 dark:border-gray-800/80 shadow-xl overflow-hidden">
                 <div className="h-1.5 bg-gradient-to-r from-rose-400 via-pink-400 to-fuchsia-400" />
                 <CardContent className="p-4 sm:p-5">
@@ -810,42 +771,112 @@ export default function Home() {
 
                   <div className="grid grid-cols-2 gap-2.5">
                     <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/10 rounded-xl p-2.5 text-center border border-orange-100/50 dark:border-orange-800/30">
-                      <p className="text-xl font-extrabold text-orange-600 dark:text-orange-400">{lligatCount}</p>
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400">Han lligat</p>
+                      <p className="text-2xl font-extrabold text-orange-600 dark:text-orange-400">{totalLligues}</p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400">Total lligues</p>
                     </div>
                     <div className="bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-900/20 dark:to-pink-900/10 rounded-xl p-2.5 text-center border border-rose-100/50 dark:border-rose-800/30">
-                      <p className="text-xl font-extrabold text-rose-600 dark:text-rose-400">{totalCount - lligatCount}</p>
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400">Pendents</p>
+                      <p className="text-2xl font-extrabold text-rose-600 dark:text-rose-400">{avgLligues}</p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400">Mitjana</p>
                     </div>
                     <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/10 rounded-xl p-2.5 text-center border border-green-100/50 dark:border-green-800/30">
-                      <p className="text-xl font-extrabold text-green-600 dark:text-green-400">
-                        {Math.round((lligatCount / totalCount) * 100)}%
-                      </p>
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400">Èxit</p>
+                      <p className="text-2xl font-extrabold text-green-600 dark:text-green-400">{activeCount}</p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400">Actius</p>
                     </div>
                     <div className="bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/10 rounded-xl p-2.5 text-center border border-amber-100/50 dark:border-amber-800/30">
-                      <p className="text-lg font-extrabold text-amber-600 dark:text-amber-400">
-                        {leaderboard.length > 0 ? leaderboard[0].name : '—'}
+                      <p className="text-lg font-extrabold text-amber-600 dark:text-amber-400 truncate">
+                        {topCandidate && topCandidate.lligatCount > 0 ? topCandidate.name : '—'}
                       </p>
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400">Primer</p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400">Líder</p>
                     </div>
                   </div>
 
-                  {/* Motivational */}
+                  {/* Leader podium */}
+                  {sorted.filter((c) => c.lligatCount > 0).length >= 2 && (
+                    <div className="mt-4 p-3 bg-gradient-to-r from-amber-50/50 to-orange-50/50 dark:from-amber-900/10 dark:to-orange-900/10 rounded-xl border border-amber-100/30 dark:border-amber-800/20">
+                      <p className="text-[11px] font-bold text-gray-500 dark:text-gray-400 mb-2 text-center">PodIUM</p>
+                      <div className="flex items-end justify-center gap-1.5">
+                        {/* 2nd place */}
+                        {sorted[1] && sorted[1].lligatCount > 0 && (
+                          <div className="text-center flex-1">
+                            <div className="relative w-9 h-9 mx-auto rounded-full overflow-hidden ring-2 ring-gray-300 dark:ring-gray-600 mb-1">
+                              <img src={sorted[1].photo} alt={sorted[1].name} className="w-full h-full object-cover" />
+                            </div>
+                            <p className="text-[9px] font-bold text-gray-600 dark:text-gray-400 truncate">{sorted[1].name}</p>
+                            <div className="mt-0.5 bg-gray-200 dark:bg-gray-700 rounded text-[10px] font-bold text-gray-600 dark:text-gray-400 py-0.5">
+                              {sorted[1].lligatCount}
+                            </div>
+                            <div className="h-12 bg-gray-200/50 dark:bg-gray-700/50 rounded-t mt-1" />
+                            <span className="text-xs">🥈</span>
+                          </div>
+                        )}
+                        {/* 1st place */}
+                        {sorted[0] && sorted[0].lligatCount > 0 && (
+                          <div className="text-center flex-1">
+                            <Crown className="w-5 h-5 text-amber-400 mx-auto mb-0.5" />
+                            <div className="relative w-11 h-11 mx-auto rounded-full overflow-hidden ring-2 ring-amber-400 mb-1">
+                              <img src={sorted[0].photo} alt={sorted[0].name} className="w-full h-full object-cover" />
+                            </div>
+                            <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 truncate">{sorted[0].name}</p>
+                            <div className="mt-0.5 bg-amber-200 dark:bg-amber-800/50 rounded text-[11px] font-bold text-amber-700 dark:text-amber-400 py-0.5">
+                              {sorted[0].lligatCount}
+                            </div>
+                            <div className="h-16 bg-amber-200/50 dark:bg-amber-800/30 rounded-t mt-1" />
+                            <span className="text-sm">👑</span>
+                          </div>
+                        )}
+                        {/* 3rd place */}
+                        {sorted[2] && sorted[2].lligatCount > 0 && (
+                          <div className="text-center flex-1">
+                            <div className="relative w-9 h-9 mx-auto rounded-full overflow-hidden ring-2 ring-orange-300 dark:ring-orange-700 mb-1">
+                              <img src={sorted[2].photo} alt={sorted[2].name} className="w-full h-full object-cover" />
+                            </div>
+                            <p className="text-[9px] font-bold text-gray-600 dark:text-gray-400 truncate">{sorted[2].name}</p>
+                            <div className="mt-0.5 bg-orange-200 dark:bg-orange-800/50 rounded text-[10px] font-bold text-orange-700 dark:text-orange-400 py-0.5">
+                              {sorted[2].lligatCount}
+                            </div>
+                            <div className="h-8 bg-orange-200/50 dark:bg-orange-800/30 rounded-t mt-1" />
+                            <span className="text-xs">🥉</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Motivation */}
                   <motion.div
-                    key={motivation.level}
+                    key={totalLligues}
                     initial={{ opacity: 0, y: 5 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className={`mt-3 p-2.5 rounded-xl border text-center transition-colors duration-500 ${
-                      motivation.level >= 7
-                        ? 'bg-gradient-to-r from-green-50/60 to-emerald-50/60 dark:from-green-900/15 dark:to-emerald-900/15 border-green-200/40 dark:border-green-800/30'
-                        : motivation.level >= 4
-                        ? 'bg-gradient-to-r from-orange-50/50 to-rose-50/50 dark:from-orange-900/10 dark:to-rose-900/10 border-orange-100/30 dark:border-orange-800/20'
-                        : 'bg-gradient-to-r from-gray-50/50 to-orange-50/30 dark:from-gray-900/10 dark:to-orange-900/5 border-gray-100/30 dark:border-gray-800/20'
-                    }`}
+                    className="mt-3 p-2.5 bg-gradient-to-r from-orange-50/50 to-rose-50/50 dark:from-orange-900/10 dark:to-rose-900/10 rounded-xl border border-orange-100/30 dark:border-orange-800/20"
                   >
-                    <p className="text-[11px] text-gray-500 dark:text-gray-400 italic">{motivation.text}</p>
+                    <p className="text-[11px] text-center text-gray-500 dark:text-gray-400 italic">
+                      {totalLligues === 0 && 'A veure qui obra el marcador... 🤷'}
+                      {totalLligues === 1 && 'Primera lligada del grup! 💪'}
+                      {totalLligues >= 2 && totalLligues <= 5 && 'S\'està escalfant l\'ambient! 🔥'}
+                      {totalLligues >= 6 && totalLligues <= 10 && 'Això va en seriu! El grup no para! 🏃'}
+                      {totalLligues >= 11 && totalLligues <= 20 && 'Quina vetllada! Seguim així! 🎉'}
+                      {totalLligues >= 21 && totalLligues <= 30 && 'El grup està en flames! 🔥🔥🔥'}
+                      {totalLligues >= 31 && 'LEGENDARI! Aquest estiu és èpic! 👑🏆🎊'}
+                    </p>
                   </motion.div>
+                </CardContent>
+              </Card>
+
+              {/* Quick Rules */}
+              <Card className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-orange-100/80 dark:border-gray-800/80 shadow-xl overflow-hidden">
+                <div className="h-1.5 bg-gradient-to-r from-cyan-400 via-teal-400 to-emerald-400" />
+                <CardContent className="p-4">
+                  <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1.5">
+                    <Hash className="w-4 h-4 text-cyan-500" /> Com funciona?
+                  </h3>
+                  <div className="space-y-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+                    <p>+ Suma <strong>+1</strong> cada vegada que lliguis</p>
+                    <p>− Resta si t\'has equivocat</p>
+                    <p>🏆 El qui tingui més va primer</p>
+                    <p>📊 Es guarda automàticament</p>
+                    <p>🔄 S\'actualitza cada 10 segons</p>
+                    <p>📋 Comparteix la classificació!</p>
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -855,7 +886,7 @@ export default function Home() {
         {/* ─── Footer ─── */}
         <footer className="relative z-10 mt-auto py-3 px-4 text-center border-t border-orange-100/30 dark:border-gray-800/30 bg-white/30 dark:bg-gray-900/30 backdrop-blur-sm">
           <p className="text-xs text-gray-400 dark:text-gray-600">
-            🔥 Objectiu liar-se amb una aquest estiu &copy; {new Date().getFullYear()} 🔥
+            🔥 Qui lliga més aquest estiu? &copy; {new Date().getFullYear()} 🔥
           </p>
         </footer>
       </div>
