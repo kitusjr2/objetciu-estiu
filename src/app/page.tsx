@@ -17,7 +17,7 @@ import {
   Moon, Sun, Share2, Clock, ChevronUp, Users,
   ArrowUp, ArrowDown, RefreshCw, X, Trash2, TrendingUp, MapPin, Calendar, Award,
   Volume2, VolumeX, Target, Timer, Swords, Gauge, Undo2, Search,
-  PartyPopper, Activity, Eye, Info, MessageCircle, BarChart3, Medal,
+  PartyPopper, Activity, Eye, Info, MessageCircle, BarChart3, Medal, Pencil,
 } from 'lucide-react'
 
 /* ─── Types ─── */
@@ -112,20 +112,27 @@ export default function Home() {
   const [versusIds, setVersusIds] = useState<[string, string] | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [quote] = useState(() => MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)])
+  const [editingLigueId, setEditingLigueId] = useState<string | null>(null)
+  const [editLigueNom, setEditLigueNom] = useState('')
+  const [editLigueEdat, setEditLigueEdat] = useState('')
+  const [editLigueUbi, setEditLigueUbi] = useState('')
+  const [editLigueRating, setEditLigueRating] = useState(0)
+  const [counterBump, setCounterBump] = useState(false)
+  const [footerTime, setFooterTime] = useState('')
   const prevRanks = useRef<Record<string, number>>({})
   const toastId = useRef(0)
   const prevTopId = useRef<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const lastActionRef = useRef<LastAction | null>(null)
   const ligueHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
+  const prevTotalRef = useRef(0)
+  const toastOutIds = useRef<Set<number>>(new Set())
   const fetchData = useCallback(async () => {
     try {
       const [c, a, l] = await Promise.all([fetch('/api/candidates'), fetch('/api/activity'), fetch('/api/ligues')])
       setCandidates(await c.json()); setActivity(await a.json()); setLigues(await l.json())
     } catch {} finally { setLoading(false) }
   }, [])
-
   useEffect(() => { fetchData() }, [fetchData])
   useEffect(() => { const iv = setInterval(fetchData, 10000); return () => clearInterval(iv) }, [fetchData])
   useEffect(() => { document.documentElement.classList.toggle('dark', darkMode); localStorage.setItem('objetciu-dark-mode', String(darkMode)) }, [darkMode])
@@ -133,8 +140,7 @@ export default function Home() {
   useEffect(() => { audioRef.current = new Audio('/sounds/ding.mp3'); audioRef.current.volume = 0.3; return () => { audioRef.current = null } }, [])
 
   const playDing = useCallback(() => { if (soundEnabled && audioRef.current) { audioRef.current.currentTime = 0; audioRef.current.play().catch(() => {}) } }, [soundEnabled])
-  const addToast = useCallback((msg: string, type = 'info') => { const id = ++toastId.current; setToasts(p => [...p, { id, message: msg, type }]); setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 3000) }, [])
-
+  const addToast = useCallback((msg: string, type = 'info') => { const id = ++toastId.current; setToasts(p => [...p, { id, message: msg, type }]); setTimeout(() => { toastOutIds.current.add(id); setToasts(p => p.map(t => t.id === id ? { ...t, type: t.type + ' out' } : t)); setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 300) }, 2700) }, [])
   useEffect(() => {
     const top = [...candidates].filter(c => !EXEMPT_IDS.has(c.id)).sort((a, b) => b.lligatCount - a.lligatCount)[0]
     if (top && top.lligatCount > 0 && prevTopId.current !== null && prevTopId.current !== top.id) {
@@ -142,7 +148,6 @@ export default function Home() {
     }
     if (top && top.lligatCount > 0) prevTopId.current = top.id
   }, [candidates, addToast])
-
   useEffect(() => {
     const nr: Record<string, number> = {}
     ;[...candidates].filter(c => !EXEMPT_IDS.has(c.id)).sort((a, b) => b.lligatCount - a.lligatCount || a.order - b.order).forEach((c, i) => { nr[c.id] = i })
@@ -151,7 +156,6 @@ export default function Home() {
     if (Object.keys(ch).length > 0) { setRankChanges(ch); setTimeout(() => setRankChanges({}), 5000) }
     prevRanks.current = nr
   }, [candidates])
-
   const increment = useCallback((id: string) => {
     let nc = 0; let pn = ''; let prev = 0
     setCandidates(p => { const c = p.find(x => x.id === id); if (!c) return p; nc = c.lligatCount + 1; pn = c.name; prev = c.lligatCount; return p.map(x => x.id === id ? { ...x, lligatCount: nc } : x) })
@@ -168,7 +172,6 @@ export default function Home() {
     if (ligueHintTimer.current) clearTimeout(ligueHintTimer.current)
     ligueHintTimer.current = setTimeout(() => setLigueHintId(null), 10000)
   }, [addToast, playDing])
-
   const decrement = useCallback((id: string) => {
     let nc = 0; let pn = ''; let prev = 0
     setCandidates(p => { const c = p.find(x => x.id === id); if (!c || c.lligatCount <= 0) return p; nc = c.lligatCount - 1; pn = c.name; prev = c.lligatCount; return p.map(x => x.id === id ? { ...x, lligatCount: nc } : x) })
@@ -177,7 +180,6 @@ export default function Home() {
       lastActionRef.current = { type: 'decrement', personId: id, personName: pn, prevCount: prev }; setHasLastAction(true)
     }
   }, [])
-
   const undoLast = useCallback(() => {
     const la = lastActionRef.current; if (!la) return
     setCandidates(p => p.map(c => c.id === la.personId ? { ...c, lligatCount: la.prevCount } : c))
@@ -185,16 +187,13 @@ export default function Home() {
     addToast(`Desfés: ${la.personName} → ${la.prevCount}`, 'info')
     lastActionRef.current = null; setHasLastAction(false)
   }, [fetchData, addToast])
-
   const updateCount = useCallback(async (id: string, val: number) => {
     if (val < 0) val = 0; setCandidates(p => p.map(c => c.id === id ? { ...c, lligatCount: val } : c))
     await fetch(`/api/candidates/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lligatCount: val }) }); fetchData()
   }, [fetchData])
-
   const handleInputSubmit = useCallback((id: string) => {
     const val = parseInt(editValue, 10); if (!isNaN(val) && val >= 0) { updateCount(id, val); const c = candidates.find(x => x.id === id); if (c) addToast(`${c.name}: ${val}`, 'success') }; setEditingId(null); setEditValue('')
   }, [editValue, updateCount, candidates, addToast])
-
   const resetAll = useCallback(async () => {
     setShowResetConfirm(false); setCandidates(p => p.map(c => ({ ...c, lligatCount: 0 })))
     await Promise.all(candidates.map(c => fetch(`/api/candidates/${c.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lligatCount: 0 }) })))
@@ -202,7 +201,6 @@ export default function Home() {
     setActivity([]); lastActionRef.current = null; setHasLastAction(false)
     addToast('Reiniciat!', 'info')
   }, [candidates, addToast])
-
   const shareSummary = useCallback(() => {
     const ne = candidates.filter(c => !EXEMPT_IDS.has(c.id)).sort((a, b) => b.lligatCount - a.lligatCount)
     const lines = ne.map((c, i) => `${i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  '} ${c.name}: ${c.lligatCount}`).join('\n')
@@ -210,21 +208,23 @@ export default function Home() {
     const text = `🔥 LIGUES ESTIU 🔥\n\n${lines}\n\nTotal: ${total}\n${new Date().toLocaleString('ca-ES')}`
     navigator.clipboard.writeText(text).then(() => addToast('Copiat!', 'success')).catch(() => { setShareText(text); setShowShareModal(true) })
   }, [candidates, addToast])
-
   const submitLigueDetails = useCallback(async () => {
     if (!showLigueForm) return; const c = candidates.find(x => x.id === showLigueForm); if (!c) return
     await fetch('/api/ligues', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId: c.id, personName: c.name, nom: ligueNom, edat: ligueEdat, ubi: ligueUbi, rating: ligueRating }) })
     setLigues(await (await fetch('/api/ligues')).json()); addToast('Guardat! 📝', 'success')
     setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0)
   }, [showLigueForm, candidates, ligueNom, ligueEdat, ligueUbi, ligueRating, addToast])
-
   const deleteLigue = useCallback(async (id: string) => {
     await fetch(`/api/ligues?id=${id}`, { method: 'DELETE' }); setLigues(await (await fetch('/api/ligues')).json()); addToast('Lligada eliminada 🗑️', 'info'); setDeleteConfirmId(null)
   }, [addToast])
-
+  const saveLigueEdit = useCallback(async () => {
+    if (!editingLigueId) return
+    await fetch('/api/ligues', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editingLigueId, nom: editLigueNom, edat: editLigueEdat, ubi: editLigueUbi, rating: editLigueRating }) })
+    setLigues(await (await fetch('/api/ligues')).json()); addToast('Editat! ✏️', 'success'); setEditingLigueId(null); setEditLigueNom(''); setEditLigueEdat(''); setEditLigueUbi(''); setEditLigueRating(0)
+  }, [editingLigueId, editLigueNom, editLigueEdat, editLigueUbi, editLigueRating, addToast])
+  const startLigueEdit = (l: LigueEntry) => { setEditingLigueId(l.id); setEditLigueNom(l.nom); setEditLigueEdat(l.edat); setEditLigueUbi(l.ubi); setEditLigueRating(l.rating) }
   const skipLigue = useCallback(() => { setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0) }, [])
   const openLigueForm = (id: string) => { setLigueHintId(null); setShowLigueForm(id); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0) }
-
   // Derived
   const sorted = useMemo(() => [...candidates].sort((a, b) => { const ae = EXEMPT_IDS.has(a.id) ? 1 : 0; const be = EXEMPT_IDS.has(b.id) ? 1 : 0; if (ae !== be) return ae - be; return b.lligatCount - a.lligatCount || a.order - b.order }), [candidates])
   const nonExempt = useMemo(() => candidates.filter(c => !EXEMPT_IDS.has(c.id)), [candidates])
@@ -235,7 +235,6 @@ export default function Home() {
   const lastActTime = activity.length > 0 ? timeAgo(activity[0].createdAt) : null
   const getAvgRating = (pid: string) => { const pl = ligues.filter(l => l.personId === pid && l.rating > 0); return pl.length === 0 ? 0 : pl.reduce((s, l) => s + l.rating, 0) / pl.length }
   const getStreak = (pid: string) => { const pa = activity.filter(a => a.personId === pid).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); let s = 0; for (const e of pa) { if (e.action === 'increment') s++; else break } return s }
-
   const rivalries = useMemo(() => {
     const s = nonExempt.filter(c => c.lligatCount > 0).sort((a, b) => b.lligatCount - a.lligatCount)
     const pairs: { a: Candidate; b: Candidate; diff: number }[] = []
@@ -274,6 +273,17 @@ export default function Home() {
     return ligues.filter(l => l.nom || l.ubi || l.rating > 0).slice(0, 5)
   }, [ligues])
 
+  // Today's stats
+  const todayStats = useMemo(() => {
+    const n = new Date(), ds = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime(), de = ds + 86400000
+    const ta = activity.filter(a => a.action === 'increment' && new Date(a.createdAt).getTime() >= ds && new Date(a.createdAt).getTime() < de)
+    const tl = ligues.filter(l => new Date(l.createdAt).getTime() >= ds && new Date(l.createdAt).getTime() < de)
+    const pp: Record<string, number> = {}; ta.forEach(a => { pp[a.personId] = (pp[a.personId] || 0) + 1 })
+    const s = Object.entries(pp).sort((a, b) => b[1] - a[1])
+    const ar = tl.some(l => l.rating > 0) ? tl.filter(l => l.rating > 0).reduce((sum, l) => sum + l.rating, 0) / tl.filter(l => l.rating > 0).length : 0
+    return { total: ta.length, top: s[0] ? { id: s[0][0], count: s[0][1] } : null, avgRating: ar }
+  }, [activity, ligues])
+
   const [summerDays, setSummerDays] = useState('')
   useEffect(() => { const end = new Date('2026-09-22'); const u = () => { const d = Math.floor((end.getTime() - Date.now()) / 86400000); const h = Math.floor(((end.getTime() - Date.now()) % 86400000) / 3600000); setSummerDays(`${d}d ${h}h`) }; u(); const iv = setInterval(u, 60000); return () => clearInterval(iv) }, [])
 
@@ -291,6 +301,18 @@ export default function Home() {
     const topRating = ligues.length > 0 ? ligues.reduce((b, l) => l.rating > (b?.rating || 0) ? l : b, ligues[0]) : null
     return { bestDay: bestDay ? { date: bestDay[0], count: bestDay[1] } : null, maxStreak, streakHolder, topRating }
   }, [activity, candidates, ligues])
+
+  // Counter bump effect
+  useEffect(() => { if (prevTotalRef.current > 0 && totalLligues !== prevTotalRef.current) { setCounterBump(true); setTimeout(() => setCounterBump(false), 300) } prevTotalRef.current = totalLligues }, [totalLligues])
+
+  // Footer time
+  useEffect(() => { const u = () => setFooterTime(new Date().toLocaleString('ca-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })); u(); const iv = setInterval(u, 60000); return () => clearInterval(iv) }, [])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { const tag = (e.target as HTMLElement)?.tagName; if (tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return; if ((e.ctrlKey||e.metaKey)&&e.key==='z') { e.preventDefault(); undoLast() } else if (e.key==='d'||e.key==='D') setDarkMode(p=>!p); else if (e.key==='s'||e.key==='S') setSoundEnabled(p=>!p); else if (e.key==='?') addToast('⌨️ D=fosc, S=so, Ctrl+Z=desfer, ?=ajuda','info') }
+    window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h)
+  }, [undoLast, addToast])
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 dark:from-stone-950 dark:via-stone-900 dark:to-stone-950">
@@ -320,11 +342,13 @@ export default function Home() {
         {showConfetti && <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">{Array.from({ length: 50 }).map((_, i) => <div key={i} className="absolute animate-confetti" style={{ left: `${Math.random()*100}%`, top: '-10px', width: 8+Math.random()*8, height: 8+Math.random()*8, backgroundColor: ['#f97316','#ef4444','#ec4899','#eab308','#22c55e','#a855f7','#06b6d4'][i%7], borderRadius: Math.random()>0.5?'50%':'2px', '--confetti-delay': `${Math.random()*1.5}s`, '--confetti-duration': `${2.5+Math.random()*2}s` } as React.CSSProperties} />)}</div>}
 
         {/* Toasts */}
-        <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">{toasts.map(t => (
-          <div key={t.id} className={`px-4 py-3 rounded-2xl shadow-2xl text-sm font-medium flex items-center gap-2 animate-in fade-in slide-in-from-right backdrop-blur-md border border-white/20 ${t.type==='success'?'bg-green-500/90 text-white':t.type==='warning'?'bg-amber-500/90 text-white':'bg-orange-500/90 text-white'}`}>
-            {t.type==='success'?<Star className="w-4 h-4"/>:t.type==='warning'?<Trophy className="w-4 h-4"/>:<Zap className="w-4 h-4"/>} {t.message}
-          </div>
-        ))}</div>
+        <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">{toasts.map(t => {
+          const isOut = t.type.endsWith(' out'); const baseType = t.type.replace(' out', '')
+          return (
+          <div key={t.id} className={`px-4 py-3 rounded-2xl shadow-2xl text-sm font-medium flex items-center gap-2 backdrop-blur-md border border-white/20 ${isOut?'animate-toast-out':'animate-in fade-in slide-in-from-right'} ${baseType==='success'?'bg-green-500/90 text-white':baseType==='warning'?'bg-amber-500/90 text-white':'bg-orange-500/90 text-white'}`}>
+            {baseType==='success'?<Star className="w-4 h-4"/>:baseType==='warning'?<Trophy className="w-4 h-4"/>:<Zap className="w-4 h-4"/>} {t.message}
+          </div>)
+        })}</div>
 
         {/* HEADER */}
         <header className="relative z-10 pt-4 sm:pt-6 pb-3 px-4">
@@ -339,7 +363,7 @@ export default function Home() {
             <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
               {/* Total badge with sparkle */}
               <div className={`inline-flex items-center gap-2 px-4 py-2 backdrop-blur-md rounded-2xl shadow-lg border relative overflow-hidden ${darkMode?'bg-stone-800/70 border-stone-700':'bg-white/70 border-orange-100'}`}>
-                <Trophy className="w-5 h-5 text-amber-500" /><span className="font-extrabold text-lg">{totalLligues}</span><span className="text-sm text-gray-500">lligues</span>
+                <Trophy className="w-5 h-5 text-amber-500" /><span className={`font-extrabold text-lg ${counterBump?'animate-counter-bump':''}`}>{totalLligues}</span><span className="text-sm text-gray-500">lligues</span>
                 <div className="absolute inset-0 animate-shimmer-sweep pointer-events-none" />
                 {totalLligues > 0 && Array.from({length:5}).map((_,i) => <span key={i} className="absolute animate-badge-sparkle pointer-events-none text-[8px]" style={{'--sparkle-x':`${15+Math.random()*70}%`,'--sparkle-y':`${15+Math.random()*70}%`,'--sparkle-delay':`${i*0.4}s`} as React.CSSProperties}>✦</span>)}
               </div>
@@ -507,8 +531,9 @@ export default function Home() {
                       const avgR = getAvgRating(person.id); const pLigues = ligues.filter(l => l.personId===person.id)
                       const rc = rankChanges[person.id]||0; const isExempt = EXEMPT_IDS.has(person.id)
                       const stripe = !isExempt&&index===0?'rank-stripe-gold animate-gradient-border':!isExempt&&index===1?'rank-stripe-silver':!isExempt&&index===2?'rank-stripe-bronze':''
+                      const barColor = !isExempt&&index===0?'#f59e0b':!isExempt&&index===1?'#9ca3af':!isExempt&&index===2?'#f97316':'#f97316'
                       return (
-                        <div key={person.id} className={`relative flex items-center gap-2.5 p-2.5 rounded-xl transition-all duration-300 animate-card-entrance hover:shadow-lg hover:shadow-orange-200/20 dark:hover:shadow-orange-500/5 hover:-translate-y-0.5 leaderboard-item ${stripe} ${isExempt?'bg-purple-50/60 dark:bg-purple-900/15 border border-purple-200/40 dark:border-purple-800/30':index===0?'bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/50 dark:border-amber-800/50':index===1?'bg-gray-50/80 dark:bg-stone-800/30 border border-gray-200/50 dark:border-stone-700/50':index===2?'bg-orange-50/80 dark:bg-orange-900/15 border border-orange-200/50 dark:border-orange-800/50':'border border-transparent hover:bg-orange-50/30 dark:hover:bg-stone-800/20'}`} style={{ animationDelay: `${index*40}ms` }}>
+                        <div key={person.id} className={`relative flex items-center gap-2.5 p-2.5 rounded-xl transition-all duration-300 animate-card-entrance hover:shadow-lg hover:shadow-orange-200/20 dark:hover:shadow-orange-500/5 hover:-translate-y-0.5 leaderboard-item ${stripe} ${isExempt?'bg-purple-50/60 dark:bg-purple-900/15 border border-purple-200/40 dark:border-purple-800/30':index===0?'bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/50 dark:border-amber-800/50':index===1?'bg-gray-50/80 dark:bg-stone-800/30 border border-gray-200/50 dark:border-stone-700/50':index===2?'bg-orange-50/80 dark:bg-orange-900/15 border border-orange-200/50 dark:border-orange-800/50':'border border-transparent hover:bg-orange-50/30 dark:hover:bg-stone-800/20'}`} style={{ animationDelay: `${index*40}ms`, '--lb-bar-color': barColor } as React.CSSProperties}>
                           <div className="flex flex-col items-center w-8 flex-shrink-0">
                             <span className="text-lg">{isExempt?'🏳️':index===0?'👑':index===1?'🥈':index===2?'🥉':index+1}</span>
                             {rc!==0&&!isExempt && (<span className={`text-[9px] font-bold flex items-center gap-0.5 animate-rank-bounce ${rc>0?'text-green-500':'text-red-500'}`}>{rc>0?(<ArrowUp className="w-2.5 h-2.5"/>):(<ArrowDown className="w-2.5 h-2.5"/>)}{Math.abs(rc)}</span>)}
@@ -581,6 +606,15 @@ export default function Home() {
                       {weeklyStats.top && (
                         <p className="text-[9px] text-gray-400 mt-0.5">👑 {candidates.find(c => c.id === weeklyStats.top!.id)?.name} ({weeklyStats.top.count})</p>
                       )}
+                    </div>
+                  )}
+                  {/* Avui stats */}
+                  {todayStats.total > 0 && (
+                    <div className="mt-3 p-2.5 rounded-lg bg-gradient-to-r from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/10 dark:to-teal-900/10 border border-emerald-100/30 dark:border-emerald-800/20">
+                      <div className="flex items-center gap-1.5 mb-1"><BarChart3 className="w-3 h-3 text-emerald-500" /><span className="text-[10px] font-bold text-gray-500 dark:text-stone-400">📊 Avui</span></div>
+                      <p className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">{todayStats.total} lligades</p>
+                      {todayStats.top && <p className="text-[9px] text-gray-400 mt-0.5">👑 {candidates.find(c => c.id === todayStats.top!.id)?.name} ({todayStats.top.count})</p>}
+                      {todayStats.avgRating > 0 && <p className="text-[9px] text-amber-500 mt-0.5">⭐ Mitjana: {todayStats.avgRating.toFixed(1)}/10</p>}
                     </div>
                   )}
                   {/* Speed */}
@@ -831,20 +865,27 @@ export default function Home() {
                       <div>
                         <p className="text-[11px] font-bold text-gray-500 mb-1.5">💋 Detalls ({pLigues.length})</p>
                         <div className="space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar">{pLigues.map(l => (
+                          editingLigueId===l.id ? (
+                            <div key={l.id} className="p-2 rounded-lg bg-orange-100/50 dark:bg-orange-900/20 border border-orange-200/50 dark:border-orange-800/40 text-[10px] space-y-1">
+                              <div className="flex gap-1"><Input value={editLigueNom} onChange={e => setEditLigueNom(e.target.value)} placeholder="Nom" className="h-6 text-[10px] px-1.5" /><Input value={editLigueEdat} onChange={e => setEditLigueEdat(e.target.value)} placeholder="Edat" className="h-6 text-[10px] px-1.5 w-14" /><Input value={editLigueUbi} onChange={e => setEditLigueUbi(e.target.value)} placeholder="Ubi" className="h-6 text-[10px] px-1.5 flex-1" /></div>
+                              <div className="flex items-center gap-1"><div className="flex gap-0.5">{[1,2,3,4,5,6,7,8,9,10].map(v=><button key={v} onClick={()=>setEditLigueRating(v===editLigueRating?0:v)} className={`w-5 h-5 rounded text-[8px] font-bold ${v<=editLigueRating?'bg-amber-400 text-white':'bg-gray-100 dark:bg-stone-700 text-gray-400'}`}>{v}</button>)}</div><div className="ml-auto flex gap-1"><Button size="sm" onClick={saveLigueEdit} className="h-6 text-[9px] px-2 bg-green-500 hover:bg-green-600 text-white">✓</Button><Button size="sm" variant="ghost" onClick={()=>setEditingLigueId(null)} className="h-6 text-[9px] px-2">✕</Button></div></div>
+                            </div>
+                          ) : (
                           <div key={l.id} className="p-2 rounded-lg bg-orange-50/50 dark:bg-orange-900/10 border border-orange-100/30 dark:border-orange-800/20 text-[10px]">
                             <div className="flex items-center gap-2">
                               {l.nom && <span className="text-gray-700 dark:text-stone-300 font-medium">{l.nom}</span>}
                               {l.edat && <span className="text-gray-400">{l.edat} anys</span>}
                               {l.ubi && <span className="text-gray-400 flex items-center gap-0.5"><MapPin className="w-2.5 h-2.5" />{l.ubi}</span>}
                               {l.rating > 0 && <span className="text-amber-500 font-bold">{l.rating}/10 ⭐</span>}
+                              <button onClick={() => startLigueEdit(l)} aria-label="Editar lligada" className="text-gray-300 hover:text-orange-500 transition-colors ml-auto"><Pencil className="w-3 h-3" /></button>
                               {deleteConfirmId===l.id ? (
-                                <div className="flex items-center gap-1 ml-auto"><button onClick={() => deleteLigue(l.id)} className="px-1.5 py-0.5 rounded bg-red-500 text-white text-[9px] font-bold hover:bg-red-600">Sí</button><button onClick={() => setDeleteConfirmId(null)} className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-stone-700 text-gray-600 dark:text-gray-300 text-[9px] font-bold">No</button></div>
+                                <div className="flex items-center gap-1"><button onClick={() => deleteLigue(l.id)} className="px-1.5 py-0.5 rounded bg-red-500 text-white text-[9px] font-bold hover:bg-red-600">Sí</button><button onClick={() => setDeleteConfirmId(null)} className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-stone-700 text-gray-600 dark:text-gray-300 text-[9px] font-bold">No</button></div>
                               ) : (
-                                <button onClick={() => setDeleteConfirmId(l.id)} aria-label="Eliminar lligada" className="ml-auto text-gray-300 hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => setDeleteConfirmId(l.id)} aria-label="Eliminar lligada" className="text-gray-300 hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                               )}
                             </div>
                             <p className="text-[9px] text-gray-400 mt-0.5">{timeAgo(l.createdAt)}</p>
-                          </div>
+                          </div>)
                         ))}</div>
                       </div>
                     )}
@@ -945,11 +986,12 @@ export default function Home() {
         </Dialog>
 
         {/* FOOTER */}
-        <footer className="relative z-10 mt-auto py-3 px-4 border-t border-orange-100/30 dark:border-stone-800/30 bg-white/40 dark:bg-stone-900/40 backdrop-blur-sm">
+        <footer className="relative z-10 mt-auto py-3 px-4 border-t border-orange-100/30 dark:border-stone-800/30 footer-gradient backdrop-blur-sm">
           <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[10px] text-gray-400 dark:text-stone-500">
-            <span className="flex items-center gap-1"><Flame className="w-3 h-3 text-orange-400" />Made with 🔥</span>
-            <span className="flex items-center gap-1"><Users className="w-3 h-3" />{candidates.length} participants</span>
-            {lastActTime && <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" />Última activitat: {lastActTime}</span>}
+            <span className="flex items-center gap-1"><Flame className="w-3 h-3 text-orange-400" />v1.0 · Fet amb 🔥</span>
+            <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{footerTime}</span>
+            <span className="flex items-center gap-1"><Heart className="w-3 h-3 text-rose-400" />{ligues.length} lligues</span>
+            <span>privacy: cap 🤷</span>
           </div>
         </footer>
       </div>

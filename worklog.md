@@ -297,3 +297,31 @@ Stage Summary:
 - Inline "Sí/No" confirmation prevents accidental deletions
 - Delete buttons are always visible (no hover dependency) - works on mobile/touch
 - Lint clean, QA verified, test data cleaned up
+
+---
+
+Task ID: 14
+Agent: Main Agent
+Task: Styling improvements and new features (edit ligue, keyboard shortcuts, Avui stats, enhanced footer, animations)
+
+Work Log:
+- **API: PUT handler for ligues**: Added PUT endpoint to `/api/ligues/route.ts` that accepts `{ id, nom, edat, ubi, rating }` and updates an existing ligue entry. Returns 404 if not found.
+- **Styling: Enhanced Footer**: Replaced simple footer with detailed one showing: "v1.0 · Fet amb 🔥", current date/time with clock icon, total ligue entries count with heart icon, "privacy: cap 🤷" note. Uses subtle gradient via `footer-gradient` CSS class.
+- **Styling: Animated Counter in Header**: When totalLligues changes, the number gets a `animate-counter-bump` CSS animation (0.3s scale(1.3) then scale(1)). Uses `prevTotalRef` to detect changes and `counterBump` state to trigger the class.
+- **Styling: Leaderboard Entry Hover Enhancement**: Added 3px colored left-bar that appears on hover for each leaderboard entry. Uses `--lb-bar-color` CSS custom property: gold (#f59e0b) for #1, silver (#9ca3af) for #2, orange (#f97316) for #3+. Implemented via `.leaderboard-item::before` pseudo-element.
+- **Styling: Toast Slide-out Animation**: Added `animate-toast-out` CSS class that slides toasts right and fades out over 0.3s. Modified `addToast` to add the "out" type suffix 2700ms after creation, then remove the toast after 300ms more (total 3000ms).
+- **Styling: Card Entrance Stagger**: Verified `animate-card-entrance` CSS animation is properly defined in globals.css (0.3s ease-out fade-in + slide-up from opacity-0 translate-y-12 to opacity-1 translate-y-0).
+- **Feature: Edit Ligue Details**: In the profile modal's "Detalls" section, added a pencil icon button next to each ligue entry's delete button. When clicked, shows an inline edit form with fields for nom, edat, ubi, and rating (1-10 buttons). On save, calls PUT /api/ligues with the updated data. New state variables: `editingLigueId`, `editLigueNom`, `editLigueEdat`, `editLigueUbi`, `editLigueRating`. New callbacks: `saveLigueEdit` (PUT), `startLigueEdit` (populates form).
+- **Feature: Keyboard Shortcuts**: Added useEffect that listens for keyboard shortcuts (only when not in an input field): `Ctrl+Z`/`Cmd+Z` → undoLast, `D` → toggle dark mode, `S` → toggle sound, `?` → show shortcuts toast.
+- **Feature: "Avui" Stats Section**: In the stats panel, added "📊 Avui" section showing today's stats: how many lligues today, who's leading today, and today's average rating. Uses `todayStats` useMemo filtering activity/ligues to today's date.
+- **CSS additions**: `@keyframes counter-bump` + `.animate-counter-bump`, `@keyframes toast-out` + `.animate-toast-out`, `.leaderboard-item::before` hover bar with `--lb-bar-color`, `.footer-gradient` with light/dark variants.
+- **Icon additions**: `Pencil` from lucide-react
+- **Lint**: Passes clean
+- **File size**: 1000 lines (at limit)
+- **API**: All 4 API methods verified working (GET/POST/PUT/DELETE for ligues)
+
+Stage Summary:
+- 5 styling improvements (enhanced footer, counter animation, leaderboard hover bars, toast slide-out, card entrance verified)
+- 3 new features (edit ligue details with PUT API, keyboard shortcuts, "Avui" stats section)
+- 1 API endpoint added (PUT /api/ligues)
+- Code at 1000 lines, lint clean, all APIs functional

@@ -31,6 +31,32 @@ export async function POST(request: NextRequest) {
   return Response.json(ligue, { status: 201 })
 }
 
+export async function PUT(request: NextRequest) {
+  const body = await request.json()
+  const { id, nom, edat, ubi, rating } = body
+
+  if (!id) {
+    return Response.json({ error: 'id is required' }, { status: 400 })
+  }
+
+  const ligue = await db.ligue.findUnique({ where: { id } })
+  if (!ligue) {
+    return Response.json({ error: 'Ligue not found' }, { status: 404 })
+  }
+
+  const updated = await db.ligue.update({
+    where: { id },
+    data: {
+      nom: nom ?? ligue.nom,
+      edat: edat ?? ligue.edat,
+      ubi: ubi ?? ligue.ubi,
+      rating: rating ?? ligue.rating,
+    },
+  })
+
+  return Response.json(updated)
+}
+
 export async function DELETE(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const id = searchParams.get('id')
