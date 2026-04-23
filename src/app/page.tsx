@@ -110,6 +110,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<'grid' | 'list'>('grid')
   const [showProfileModal, setShowProfileModal] = useState<string | null>(null)
   const [versusIds, setVersusIds] = useState<[string, string] | null>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [quote] = useState(() => MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)])
   const prevRanks = useRef<Record<string, number>>({})
   const toastId = useRef(0)
@@ -218,7 +219,7 @@ export default function Home() {
   }, [showLigueForm, candidates, ligueNom, ligueEdat, ligueUbi, ligueRating, addToast])
 
   const deleteLigue = useCallback(async (id: string) => {
-    await fetch(`/api/ligues?id=${id}`, { method: 'DELETE' }); setLigues(await (await fetch('/api/ligues')).json()); addToast('Eliminada', 'info')
+    await fetch(`/api/ligues?id=${id}`, { method: 'DELETE' }); setLigues(await (await fetch('/api/ligues')).json()); addToast('Lligada eliminada 🗑️', 'info'); setDeleteConfirmId(null)
   }, [addToast])
 
   const skipLigue = useCallback(() => { setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0) }, [])
@@ -646,12 +647,17 @@ export default function Home() {
                     <div className="mt-3 p-2.5 rounded-lg bg-gradient-to-r from-pink-50/50 to-rose-50/50 dark:from-pink-900/10 dark:to-rose-900/10 border border-pink-100/30 dark:border-pink-800/20">
                       <div className="flex items-center gap-1.5 mb-2"><Medal className="w-3 h-3 text-pink-500" /><span className="text-[10px] font-bold text-gray-500 dark:text-stone-400">Últimes lligades</span></div>
                       <div className="space-y-1.5 max-h-32 overflow-y-auto custom-scrollbar">{recentLigues.map(l => (
-                        <div key={l.id} className="flex items-center gap-2 text-[10px] p-1.5 rounded-lg bg-white/50 dark:bg-stone-800/50 border border-pink-100/20 dark:border-pink-800/10">
+                        <div key={l.id} className="flex items-center gap-2 text-[10px] p-1.5 rounded-lg bg-white/50 dark:bg-stone-800/50 border border-pink-100/20 dark:border-pink-800/10 relative group">
                           <div className="w-5 h-5 rounded-full overflow-hidden ring-1 ring-gray-200 dark:ring-stone-700 flex-shrink-0"><img src={candidates.find(c => c.id === l.personId)?.photo || ''} alt="" className="w-full h-full object-cover" /></div>
                           <span className="font-semibold text-gray-700 dark:text-stone-300 truncate">{l.personName}</span>
                           {l.nom && <span className="text-gray-400 truncate">→ {l.nom}</span>}
-                          {l.rating > 0 && <span className="ml-auto text-amber-500 font-bold">{l.rating}⭐</span>}
+                          {l.rating > 0 && <span className="text-amber-500 font-bold">{l.rating}⭐</span>}
                           <span className="text-gray-400 ml-auto flex-shrink-0">{timeAgo(l.createdAt)}</span>
+                          {deleteConfirmId===l.id ? (
+                            <div className="flex items-center gap-1 ml-1"><button onClick={() => deleteLigue(l.id)} className="px-1.5 py-0.5 rounded bg-red-500 text-white text-[9px] font-bold hover:bg-red-600 transition-colors">Sí</button><button onClick={() => setDeleteConfirmId(null)} className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-stone-700 text-gray-600 dark:text-gray-300 text-[9px] font-bold">No</button></div>
+                          ) : (
+                            <button onClick={() => setDeleteConfirmId(l.id)} aria-label="Eliminar lligada" className="ml-0.5 text-gray-300 hover:text-red-500 transition-colors"><Trash2 className="w-3 h-3" /></button>
+                          )}
                         </div>
                       ))}</div>
                     </div>
@@ -751,7 +757,7 @@ export default function Home() {
           const rank = sorted.findIndex(s => s.id === person.id)
           const isExempt = EXEMPT_IDS.has(person.id)
           return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xl" onClick={() => setShowProfileModal(null)}>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xl" onClick={() => { setShowProfileModal(null); setDeleteConfirmId(null) }}>
               <div className="w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                 <Card className="bg-white/80 dark:bg-stone-900/80 shadow-2xl border border-white/30 dark:border-stone-700/50 backdrop-blur-2xl overflow-hidden">
                   <div className="h-2 bg-gradient-to-r from-orange-400 via-rose-400 to-pink-500" />
@@ -830,7 +836,12 @@ export default function Home() {
                               {l.nom && <span className="text-gray-700 dark:text-stone-300 font-medium">{l.nom}</span>}
                               {l.edat && <span className="text-gray-400">{l.edat} anys</span>}
                               {l.ubi && <span className="text-gray-400 flex items-center gap-0.5"><MapPin className="w-2.5 h-2.5" />{l.ubi}</span>}
-                              {l.rating > 0 && <span className="text-amber-500 font-bold ml-auto">{l.rating}/10 ⭐</span>}
+                              {l.rating > 0 && <span className="text-amber-500 font-bold">{l.rating}/10 ⭐</span>}
+                              {deleteConfirmId===l.id ? (
+                                <div className="flex items-center gap-1 ml-auto"><button onClick={() => deleteLigue(l.id)} className="px-1.5 py-0.5 rounded bg-red-500 text-white text-[9px] font-bold hover:bg-red-600">Sí</button><button onClick={() => setDeleteConfirmId(null)} className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-stone-700 text-gray-600 dark:text-gray-300 text-[9px] font-bold">No</button></div>
+                              ) : (
+                                <button onClick={() => setDeleteConfirmId(l.id)} aria-label="Eliminar lligada" className="ml-auto text-gray-300 hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                              )}
                             </div>
                             <p className="text-[9px] text-gray-400 mt-0.5">{timeAgo(l.createdAt)}</p>
                           </div>
@@ -877,7 +888,7 @@ export default function Home() {
 
         {/* LIGUE HISTORY MODAL */}
         {showLigueHistory && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xl" onClick={() => setShowLigueHistory(null)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xl" onClick={() => { setShowLigueHistory(null); setDeleteConfirmId(null) }}>
             <div className="w-full max-w-lg max-h-[80vh] overflow-y-auto animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
               <Card className="bg-white/80 dark:bg-stone-900/80 shadow-2xl border border-white/30 dark:border-stone-700/50 backdrop-blur-2xl overflow-hidden">
                 <div className="h-2 bg-gradient-to-r from-cyan-400 to-emerald-400" />
@@ -895,7 +906,11 @@ export default function Home() {
                           {ligue.ubi && <div><span className="text-gray-400 flex items-center gap-0.5"><MapPin className="w-2.5 h-2.5" /> Ubi:</span><p className="font-semibold text-gray-700 dark:text-stone-300">{ligue.ubi}</p></div>}
                           {ligue.rating>0 && <div><span className="text-gray-400 flex items-center gap-0.5"><Star className="w-2.5 h-2.5" /> Val:</span><div className="flex items-center gap-1">{Array.from({ length: 10 }, (_, i) => <span key={i} className={`text-[10px] ${i<ligue.rating?'text-amber-400':'text-gray-300'}`}>★</span>)}<span className="font-bold text-amber-500">{ligue.rating}/10</span></div></div>}
                         </div>
-                        <div className="flex items-center justify-between mt-1"><p className="text-[10px] text-gray-400 flex items-center gap-0.5"><Calendar className="w-2.5 h-2.5" /> {timeAgo(ligue.createdAt)}</p><button onClick={() => deleteLigue(ligue.id)} aria-label="Eliminar lligada" className="text-gray-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"><Trash2 className="w-3.5 h-3.5" /></button></div>
+                        <div className="flex items-center justify-between mt-1"><p className="text-[10px] text-gray-400 flex items-center gap-0.5"><Calendar className="w-2.5 h-2.5" /> {timeAgo(ligue.createdAt)}</p>{deleteConfirmId===ligue.id ? (
+                          <div className="flex items-center gap-1"><span className="text-[9px] text-red-500">Eliminar?</span><button onClick={() => deleteLigue(ligue.id)} className="px-1.5 py-0.5 rounded bg-red-500 text-white text-[9px] font-bold hover:bg-red-600">Sí</button><button onClick={() => setDeleteConfirmId(null)} className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-stone-700 text-gray-600 dark:text-gray-300 text-[9px] font-bold">No</button></div>
+                        ) : (
+                          <button onClick={() => setDeleteConfirmId(ligue.id)} aria-label="Eliminar lligada" className="text-gray-400 hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                        )}</div>
                       </div>
                     ))}</div>
                   )}

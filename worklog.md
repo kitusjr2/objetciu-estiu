@@ -271,3 +271,29 @@ Stage Summary:
 - Fix: Used C double-fork daemon (/tmp/daemon, source /tmp/daemon.c) to create a properly detached Next.js process
 - Updated /home/z/my-project/start.sh to use npx instead of bun --bun
 - Page is now fully accessible and functional through the Preview Panel
+
+---
+
+Task ID: 13
+Agent: Main Agent
+Task: Add delete functionality for ligue entries (user request)
+
+Work Log:
+- User reported: "He probado la opcion de valoracion, ubicacion y demas. Pero no hay una opcion de borrado. Añadelo"
+- Investigated existing delete functionality - found a delete button existed in the ligue history modal but was hidden with `opacity-0 group-hover:opacity-100` (invisible on mobile/touch devices)
+- No delete buttons existed in the profile modal or the recent ligues feed
+- Added `deleteConfirmId` state for inline confirmation before deleting
+- Updated `deleteLigue` callback to reset `deleteConfirmId` and show toast with 🗑️ emoji
+- **Recent Ligues Feed** (stats panel): Added trash icon button with Sí/No inline confirmation
+- **Profile Modal**: Added trash icon button with Sí/No inline confirmation in the "Detalls" section
+- **Ligue History Modal**: Changed delete button from hidden (hover-only) to always visible, added Sí/No inline confirmation with "Eliminar?" text
+- Cleaned up `deleteConfirmId` on modal close for both profile and ligue history modals
+- QA tested with agent-browser: delete flow works correctly (click trash → Sí/No → Sí deletes from DB → toast appears)
+- Reset test data (Ian count → 0, cleared activity logs)
+- Lint passes clean
+
+Stage Summary:
+- Delete functionality now available in ALL 3 places where ligue entries appear
+- Inline "Sí/No" confirmation prevents accidental deletions
+- Delete buttons are always visible (no hover dependency) - works on mobile/touch
+- Lint clean, QA verified, test data cleaned up
