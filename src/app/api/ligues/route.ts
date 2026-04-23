@@ -62,7 +62,9 @@ export async function DELETE(request: NextRequest) {
   const id = searchParams.get('id')
 
   if (!id) {
-    return Response.json({ error: 'id is required' }, { status: 400 })
+    // No id provided - delete ALL ligues (for reset functionality)
+    await db.ligue.deleteMany()
+    return Response.json({ success: true, deletedAll: true })
   }
 
   const ligue = await db.ligue.findUnique({ where: { id } })

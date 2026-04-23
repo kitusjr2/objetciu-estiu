@@ -325,3 +325,31 @@ Stage Summary:
 - 3 new features (edit ligue details with PUT API, keyboard shortcuts, "Avui" stats section)
 - 1 API endpoint added (PUT /api/ligues)
 - Code at 1000 lines, lint clean, all APIs functional
+
+---
+Task ID: 15
+Agent: Main Agent
+Task: QA, bug fixes, styling improvements, and new features
+
+Work Log:
+- **QA Testing**: Verified page renders, increment works, achievements display, all 3 APIs responding
+- **Bug Fix: resetAll now clears ligues**: Added `await fetch('/api/ligues', { method: 'DELETE' })` and `setLigues([])` to resetAll function. Also modified ligues DELETE API to support clearing all entries when no `id` query param is provided
+- **Bug Fix: Keyboard shortcut contentEditable**: Added `ce === 'true'` check to prevent keyboard shortcuts from firing when user is typing in contentEditable elements
+- **Styling: Profile Modal Animation**: Added `animate-modal-slide-up` CSS animation and class to the profile modal card for a slide-up entrance effect
+- **Styling: Caliente Indicator**: Added green pulsing dot next to candidate names in the leaderboard when they've been active in the last hour (isCaliente function)
+- **Styling: Rating Bar in History**: Replaced 10 small stars with a gradient-filled progress bar (orange→yellow→green) in the ligue history modal for rating visualization
+- **Styling: Enhanced Footer**: Updated footer to v2.0, added "sync 10s" indicator with RefreshCw icon, changed "lligues" to "detalls" for ligues count
+- **Feature: Night Out Mode (Mode Nit)**: New full-screen overlay mode activated by Wine 🍷 button in header. Shows simplified single-column view with large +1 buttons optimized for quick use when out at night. Auto-enables dark mode. Includes "Tornar" button to return to normal view. Shows caliente indicators and exempt candidates separately
+- **Feature: New Activity Notification Badge**: When the 10s polling detects new activity from other users, a red badge with count appears on the Activity button. Badge clears when user opens the timeline
+- **Feature: Enhanced Share Summary**: Share text now includes average ratings per person, total stats (total/avg/active count), and motivational message
+- **CSS additions**: modal-slide-up, night-in, rating-bar-fill, caliente-pulse, night-mode-bg, rating-gradient-bar animations/classes
+- **Lint**: Passes clean
+- **File size**: 1053 lines page.tsx, 523 lines globals.css
+- **Test data**: Reset (Ian count → 0, activity cleared)
+- **QA**: All features verified via agent-browser - Night Mode works, increment in Night Mode works, back to normal works, header buttons all functional
+
+Stage Summary:
+- 2 bug fixes (resetAll clearing ligues, contentEditable keyboard shortcut)
+- 4 styling improvements (profile modal animation, caliente indicator, rating bar, footer)
+- 3 new features (Night Out Mode, Activity notification badge, Enhanced share)
+- Code at 1053 lines, lint clean, all APIs functional

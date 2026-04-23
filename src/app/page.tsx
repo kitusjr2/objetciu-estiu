@@ -17,7 +17,7 @@ import {
   Moon, Sun, Share2, Clock, ChevronUp, Users,
   ArrowUp, ArrowDown, RefreshCw, X, Trash2, TrendingUp, MapPin, Calendar, Award,
   Volume2, VolumeX, Target, Timer, Swords, Gauge, Undo2, Search,
-  PartyPopper, Activity, Eye, Info, MessageCircle, BarChart3, Medal, Pencil,
+  PartyPopper, Activity, Eye, Info, MessageCircle, BarChart3, Medal, Pencil, Wine,
 } from 'lucide-react'
 
 /* ─── Types ─── */
@@ -119,6 +119,9 @@ export default function Home() {
   const [editLigueRating, setEditLigueRating] = useState(0)
   const [counterBump, setCounterBump] = useState(false)
   const [footerTime, setFooterTime] = useState('')
+  const [nightMode, setNightMode] = useState(false)
+  const [newActivityCount, setNewActivityCount] = useState(0)
+  const lastActivityLen = useRef(0)
   const prevRanks = useRef<Record<string, number>>({})
   const toastId = useRef(0)
   const prevTopId = useRef<string | null>(null)
@@ -130,12 +133,18 @@ export default function Home() {
   const fetchData = useCallback(async () => {
     try {
       const [c, a, l] = await Promise.all([fetch('/api/candidates'), fetch('/api/activity'), fetch('/api/ligues')])
-      setCandidates(await c.json()); setActivity(await a.json()); setLigues(await l.json())
+      const cd = await c.json(); const ad = await a.json(); const ld = await l.json()
+      setCandidates(cd); setActivity(ad); setLigues(ld)
+      // Detect new activity from other users
+      if (lastActivityLen.current > 0 && ad.length > lastActivityLen.current) {
+        setNewActivityCount(p => p + (ad.length - lastActivityLen.current))
+      }
+      lastActivityLen.current = ad.length
     } catch {} finally { setLoading(false) }
   }, [])
   useEffect(() => { fetchData() }, [fetchData])
   useEffect(() => { const iv = setInterval(fetchData, 10000); return () => clearInterval(iv) }, [fetchData])
-  useEffect(() => { document.documentElement.classList.toggle('dark', darkMode); localStorage.setItem('objetciu-dark-mode', String(darkMode)) }, [darkMode])
+  useEffect(() => { document.documentElement.classList.toggle('dark', darkMode || nightMode); localStorage.setItem('objetciu-dark-mode', String(darkMode)) }, [darkMode, nightMode])
   useEffect(() => { localStorage.setItem('objetciu-sound', String(soundEnabled)) }, [soundEnabled])
   useEffect(() => { audioRef.current = new Audio('/sounds/ding.mp3'); audioRef.current.volume = 0.3; return () => { audioRef.current = null } }, [])
 
@@ -198,14 +207,16 @@ export default function Home() {
     setShowResetConfirm(false); setCandidates(p => p.map(c => ({ ...c, lligatCount: 0 })))
     await Promise.all(candidates.map(c => fetch(`/api/candidates/${c.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lligatCount: 0 }) })))
     await fetch('/api/activity', { method: 'DELETE' })
-    setActivity([]); lastActionRef.current = null; setHasLastAction(false)
-    addToast('Reiniciat!', 'info')
+    await fetch('/api/ligues', { method: 'DELETE' })
+    setActivity([]); setLigues([]); lastActionRef.current = null; setHasLastAction(false)
+    addToast('Reiniciat! Tot esborrat 🗑️', 'info')
   }, [candidates, addToast])
   const shareSummary = useCallback(() => {
     const ne = candidates.filter(c => !EXEMPT_IDS.has(c.id)).sort((a, b) => b.lligatCount - a.lligatCount)
-    const lines = ne.map((c, i) => `${i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  '} ${c.name}: ${c.lligatCount}`).join('\n')
     const total = ne.reduce((s, c) => s + c.lligatCount, 0)
-    const text = `🔥 LIGUES ESTIU 🔥\n\n${lines}\n\nTotal: ${total}\n${new Date().toLocaleString('ca-ES')}`
+    const lines = ne.map((c, i) => `${i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : '  '} ${c.name}: ${c.lligatCount}${getAvgRating(c.id) > 0 ? ` ⭐${getAvgRating(c.id).toFixed(1)}` : ''}`).join('\n')
+    const active = ne.filter(c => c.lligatCount > 0).length
+    const text = `🔥 LIGUES ESTIU 🔥\n\n${lines}\n\n📊 Total: ${total} | Mitjana: ${(total/ne.length).toFixed(1)} | Actius: ${active}/${ne.length}\n${getMotivation(total)}\n\n${new Date().toLocaleString('ca-ES')}`
     navigator.clipboard.writeText(text).then(() => addToast('Copiat!', 'success')).catch(() => { setShareText(text); setShowShareModal(true) })
   }, [candidates, addToast])
   const submitLigueDetails = useCallback(async () => {
@@ -235,6 +246,7 @@ export default function Home() {
   const lastActTime = activity.length > 0 ? timeAgo(activity[0].createdAt) : null
   const getAvgRating = (pid: string) => { const pl = ligues.filter(l => l.personId === pid && l.rating > 0); return pl.length === 0 ? 0 : pl.reduce((s, l) => s + l.rating, 0) / pl.length }
   const getStreak = (pid: string) => { const pa = activity.filter(a => a.personId === pid).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); let s = 0; for (const e of pa) { if (e.action === 'increment') s++; else break } return s }
+  const isCaliente = (pid: string) => { const h = Date.now() - 3600000; return activity.some(a => a.personId === pid && a.action === 'increment' && new Date(a.createdAt).getTime() > h) }
   const rivalries = useMemo(() => {
     const s = nonExempt.filter(c => c.lligatCount > 0).sort((a, b) => b.lligatCount - a.lligatCount)
     const pairs: { a: Candidate; b: Candidate; diff: number }[] = []
@@ -310,7 +322,7 @@ export default function Home() {
 
   // Keyboard shortcuts
   useEffect(() => {
-    const h = (e: KeyboardEvent) => { const tag = (e.target as HTMLElement)?.tagName; if (tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return; if ((e.ctrlKey||e.metaKey)&&e.key==='z') { e.preventDefault(); undoLast() } else if (e.key==='d'||e.key==='D') setDarkMode(p=>!p); else if (e.key==='s'||e.key==='S') setSoundEnabled(p=>!p); else if (e.key==='?') addToast('⌨️ D=fosc, S=so, Ctrl+Z=desfer, ?=ajuda','info') }
+    const h = (e: KeyboardEvent) => { const tag = (e.target as HTMLElement)?.tagName; const ce = (e.target as HTMLElement)?.contentEditable; if (tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||ce==='true') return; if ((e.ctrlKey||e.metaKey)&&e.key==='z') { e.preventDefault(); undoLast() } else if (e.key==='d'||e.key==='D') setDarkMode(p=>!p); else if (e.key==='s'||e.key==='S') setSoundEnabled(p=>!p); else if (e.key==='?') addToast('⌨️ D=fosc, S=so, Ctrl+Z=desfer, ?=ajuda','info') }
     window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h)
   }, [undoLast, addToast])
 
@@ -375,8 +387,9 @@ export default function Home() {
               <div className="flex items-center gap-1.5">
                 <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={undoLast} disabled={!hasLastAction} aria-label="Desfer última acció" className={hdrBtn}><Undo2 className="w-3.5 h-3.5" /></Button></TooltipTrigger><TooltipContent>Desfer</TooltipContent></Tooltip>
                 <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={shareSummary} aria-label="Compartir resum" className={hdrBtn}><Share2 className="w-3.5 h-3.5" /><span className="hidden sm:inline">Compartir</span></Button></TooltipTrigger><TooltipContent>Compartir</TooltipContent></Tooltip>
-                <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => setShowTimeline(!showTimeline)} aria-label="Mostrar activitat" className={`${hdrBtn} ${showTimeline?'bg-orange-100 dark:bg-orange-900/30':''}`}><Activity className="w-3.5 h-3.5" /></Button></TooltipTrigger><TooltipContent>Activitat</TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => { setShowTimeline(!showTimeline); setNewActivityCount(0) }} aria-label="Mostrar activitat" className={`relative ${hdrBtn} ${showTimeline?'bg-orange-100 dark:bg-orange-900/30':''}`}><Activity className="w-3.5 h-3.5" />{newActivityCount>0&&<span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center animate-pulse">{newActivityCount>9?'9+':newActivityCount}</span>}</Button></TooltipTrigger><TooltipContent>Activitat{newActivityCount>0?` (${newActivityCount} noves)`:''}</TooltipContent></Tooltip>
                 <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => setDarkMode(!darkMode)} aria-label={darkMode?'Mode clar':'Mode fosc'} className={hdrBtn}>{darkMode?<Sun className="w-3.5 h-3.5"/>:<Moon className="w-3.5 h-3.5"/>}</Button></TooltipTrigger><TooltipContent>{darkMode?'Clar':'Fosc'}</TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => setNightMode(!nightMode)} aria-label={nightMode?'Mode normal':'Mode nit'} className={`${hdrBtn} ${nightMode?'bg-rose-100 dark:bg-rose-900/30 border-rose-300 dark:border-rose-700':''}`}><Wine className="w-3.5 h-3.5" /><span className="hidden sm:inline text-[10px]">{nightMode?'Tornar':'Nit'}</span></Button></TooltipTrigger><TooltipContent>{nightMode?'Mode normal':'Mode Nit 🍷'}</TooltipContent></Tooltip>
                 <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => setShowResetConfirm(true)} aria-label="Reiniciar comptadors" className={`${hdrBtn} hover:bg-red-50 dark:hover:bg-red-900/20`}><RotateCcw className="w-3.5 h-3.5" /></Button></TooltipTrigger><TooltipContent>Reiniciar</TooltipContent></Tooltip>
                 <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => setSoundEnabled(!soundEnabled)} aria-label={soundEnabled?'Silenciar so':'Activar so'} className={hdrBtn}>{soundEnabled?<Volume2 className="w-3.5 h-3.5"/>:<VolumeX className="w-3.5 h-3.5"/>}</Button></TooltipTrigger><TooltipContent>{soundEnabled?'Silenciar':'So'}</TooltipContent></Tooltip>
               </div>
@@ -542,7 +555,7 @@ export default function Home() {
                             <img src={person.photo} alt={person.name} style={IMG_POS[person.id]?{objectPosition:IMG_POS[person.id]}:undefined} className={`w-full h-full object-cover ${isExempt?'grayscale-[30%] opacity-70':''}`} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-baseline gap-1.5"><p className={`text-sm font-bold truncate ${isExempt?'text-purple-500 dark:text-purple-400':'text-gray-700 dark:text-stone-300'}`}>{person.name}</p><p className="text-[10px] text-gray-400">{person.nickname}</p></div>
+                            <div className="flex items-baseline gap-1.5"><p className={`text-sm font-bold truncate ${isExempt?'text-purple-500 dark:text-purple-400':'text-gray-700 dark:text-stone-300'}`}>{person.name}</p>{!isExempt&&isCaliente(person.id)&&<span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" /></span>}<p className="text-[10px] text-gray-400">{person.nickname}</p></div>
                             <div className="flex items-center gap-2 mt-0.5">
                               {pLigues.length>0 && <button onClick={() => setShowLigueHistory(person.id)} aria-label={`Historial de ${person.name}`} className="text-[9px] text-orange-500 hover:underline flex items-center gap-0.5"><MessageCircle className="w-2.5 h-2.5" />{pLigues.length}</button>}
                               {avgR>0 && <span className="text-[9px] text-amber-500 flex items-center gap-0.5"><Star className="w-2.5 h-2.5" />{avgR.toFixed(1)}</span>}
@@ -779,6 +792,46 @@ export default function Home() {
           </div>
         </main>
 
+        {/* NIGHT OUT MODE */}
+        {nightMode && (
+          <div className="fixed inset-0 z-40 bg-gradient-to-b from-stone-950 via-stone-900 to-stone-950 flex flex-col animate-in fade-in duration-300">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-stone-800/50">
+              <div className="flex items-center gap-2"><Wine className="w-5 h-5 text-rose-400" /><h2 className="text-lg font-bold text-rose-400">Mode Nit 🍷</h2></div>
+              <Button variant="outline" size="sm" onClick={() => setNightMode(false)} className="border-stone-700 text-stone-300 hover:bg-stone-800 gap-1">Tornar</Button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+              <div className="max-w-md mx-auto space-y-3">
+                <p className="text-center text-stone-400 text-xs mb-4">Toca per sumar ràpid 💪</p>
+                {sorted.filter(c => !EXEMPT_IDS.has(c.id)).map(person => (
+                  <div key={person.id} className="flex items-center gap-3 p-3 rounded-2xl bg-stone-800/60 border border-stone-700/50 transition-all hover:bg-stone-800/80">
+                    <div className="relative w-12 h-12 rounded-full overflow-hidden ring-2 ring-stone-600 flex-shrink-0">
+                      <img src={person.photo} alt={person.name} style={IMG_POS[person.id]?{objectPosition:IMG_POS[person.id]}:undefined} className="w-full h-full object-cover" />
+                      {isCaliente(person.id) && <span className="absolute -bottom-0.5 -right-0.5 flex h-2.5 w-2.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" /><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" /></span>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-stone-200 truncate">{person.name}</p>
+                      <p className="text-[10px] text-stone-500">{person.nickname}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-extrabold text-rose-400 min-w-[2rem] text-center">{person.lligatCount}</span>
+                      <button onClick={() => increment(person.id)} className="w-12 h-12 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-xl font-bold flex items-center justify-center transition-all active:scale-95 shadow-lg shadow-green-500/20">+</button>
+                    </div>
+                  </div>
+                ))}
+                {/* Exempt section */}
+                {sorted.filter(c => EXEMPT_IDS.has(c.id)).map(person => (
+                  <div key={person.id} className="flex items-center gap-3 p-3 rounded-2xl bg-purple-900/20 border border-purple-700/30">
+                    <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-purple-500/50 flex-shrink-0"><img src={person.photo} alt={person.name} className="w-full h-full object-cover grayscale-[30%]" /></div>
+                    <div className="flex-1 min-w-0"><p className="text-sm font-bold text-purple-400 truncate">{person.name} <span className="text-[9px] text-purple-500">(exempt)</span></p></div>
+                    <div className="flex items-center gap-2"><span className="text-2xl font-extrabold text-purple-400 min-w-[2rem] text-center">{person.lligatCount}</span><button onClick={() => increment(person.id)} className="w-12 h-12 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-xl font-bold flex items-center justify-center transition-all active:scale-95">+</button></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="px-4 py-3 border-t border-stone-800/50 text-center"><p className="text-stone-600 text-[10px]">🍷 Mode Nit · Toca + per sumar · {totalLligues} lligues en total</p></div>
+          </div>
+        )}
+
         {/* PROFILE MODAL - New feature */}
         {showProfileModal && (() => {
           const person = candidates.find(c => c.id === showProfileModal)
@@ -792,7 +845,7 @@ export default function Home() {
           const isExempt = EXEMPT_IDS.has(person.id)
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xl" onClick={() => { setShowProfileModal(null); setDeleteConfirmId(null) }}>
-              <div className="w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+              <div className="w-full max-w-md max-h-[85vh] overflow-y-auto animate-modal-slide-up" onClick={e => e.stopPropagation()}>
                 <Card className="bg-white/80 dark:bg-stone-900/80 shadow-2xl border border-white/30 dark:border-stone-700/50 backdrop-blur-2xl overflow-hidden">
                   <div className="h-2 bg-gradient-to-r from-orange-400 via-rose-400 to-pink-500" />
                   <CardContent className="p-5">
@@ -945,7 +998,7 @@ export default function Home() {
                           {ligue.nom && <div><span className="text-gray-400 flex items-center gap-0.5"><Heart className="w-2.5 h-2.5" /> Nom:</span><p className="font-semibold text-gray-700 dark:text-stone-300">{ligue.nom}</p></div>}
                           {ligue.edat && <div><span className="text-gray-400 flex items-center gap-0.5"><Users className="w-2.5 h-2.5" /> Edat:</span><p className="font-semibold text-gray-700 dark:text-stone-300">{ligue.edat}</p></div>}
                           {ligue.ubi && <div><span className="text-gray-400 flex items-center gap-0.5"><MapPin className="w-2.5 h-2.5" /> Ubi:</span><p className="font-semibold text-gray-700 dark:text-stone-300">{ligue.ubi}</p></div>}
-                          {ligue.rating>0 && <div><span className="text-gray-400 flex items-center gap-0.5"><Star className="w-2.5 h-2.5" /> Val:</span><div className="flex items-center gap-1">{Array.from({ length: 10 }, (_, i) => <span key={i} className={`text-[10px] ${i<ligue.rating?'text-amber-400':'text-gray-300'}`}>★</span>)}<span className="font-bold text-amber-500">{ligue.rating}/10</span></div></div>}
+                          {ligue.rating>0 && <div><span className="text-gray-400 flex items-center gap-0.5"><Star className="w-2.5 h-2.5" /> Val:</span><div className="flex items-center gap-1.5 mt-0.5"><div className="flex-1 h-1.5 bg-gray-200/60 dark:bg-stone-700/40 rounded-full overflow-hidden"><div className="h-full rounded-full rating-bar-fill" style={{width:`${ligue.rating*10}%`}} /></div><span className="font-bold text-amber-500 text-[10px]">{ligue.rating}/10</span></div></div>}
                         </div>
                         <div className="flex items-center justify-between mt-1"><p className="text-[10px] text-gray-400 flex items-center gap-0.5"><Calendar className="w-2.5 h-2.5" /> {timeAgo(ligue.createdAt)}</p>{deleteConfirmId===ligue.id ? (
                           <div className="flex items-center gap-1"><span className="text-[9px] text-red-500">Eliminar?</span><button onClick={() => deleteLigue(ligue.id)} className="px-1.5 py-0.5 rounded bg-red-500 text-white text-[9px] font-bold hover:bg-red-600">Sí</button><button onClick={() => setDeleteConfirmId(null)} className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-stone-700 text-gray-600 dark:text-gray-300 text-[9px] font-bold">No</button></div>
@@ -988,10 +1041,10 @@ export default function Home() {
         {/* FOOTER */}
         <footer className="relative z-10 mt-auto py-3 px-4 border-t border-orange-100/30 dark:border-stone-800/30 footer-gradient backdrop-blur-sm">
           <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[10px] text-gray-400 dark:text-stone-500">
-            <span className="flex items-center gap-1"><Flame className="w-3 h-3 text-orange-400" />v1.0 · Fet amb 🔥</span>
+            <span className="flex items-center gap-1"><Flame className="w-3 h-3 text-orange-400" />v2.0 · Fet amb 🔥</span>
             <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{footerTime}</span>
-            <span className="flex items-center gap-1"><Heart className="w-3 h-3 text-rose-400" />{ligues.length} lligues</span>
-            <span>privacy: cap 🤷</span>
+            <span className="flex items-center gap-1"><Heart className="w-3 h-3 text-rose-400" />{ligues.length} detalls</span>
+            <span className="flex items-center gap-1"><RefreshCw className="w-3 h-3" />sync 10s</span>
           </div>
         </footer>
       </div>
