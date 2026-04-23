@@ -220,6 +220,34 @@ Stage Summary:
 - Consider upgrading sandbox memory allocation
 
 ---
+Task ID: 12
+Agent: Full-stack Developer
+Task: Fix bugs, improve styling, add features
+
+Work Log:
+- **Bug 1 Fixed**: Template literal in list view avatar ring (line 436) - changed from regular string `"ring-2 ${...}"` to proper template literal `` `ring-2 ${...}` ``
+- **Bug 2 Fixed**: Cleaned up stale test activity data by calling `DELETE /api/activity` (twice to clear all), reset Ian's lligatCount from 1 back to 0 via `PATCH /api/candidates/ian`
+- **Styling: Sticky Footer**: Replaced basic "Última:" footer with proper styled footer showing: Made with 🔥, participant count, and last activity time. Uses `mt-auto` on footer with `min-h-screen flex flex-col` wrapper
+- **Styling: Sparkle Effect**: Added 5 animated sparkle particles (`✦`) around the total lligues badge when totalLligues > 0, using CSS custom properties for position/delay
+- **Styling: Live Pulse Indicator**: Added green pulsing dot next to header title (animate-ping) to indicate auto-refresh
+- **Styling: Improved Empty State**: Replaced simple Sparkles icon with animated circular layout with floating emoji stars (💫, ✨, ⭐), bouncing Sparkles, and "La nit és jove" tagline
+- **Styling: Glassmorphism on Modals**: Updated all 4 modal overlays (profile, ligue form, ligue history, share) from `bg-black/50 backdrop-blur-sm` to `bg-black/40 backdrop-blur-xl`, and card backgrounds to `bg-white/80 dark:bg-stone-900/80 backdrop-blur-2xl border-white/30`
+- **Styling: Leaderboard Hover Effect**: Added `leaderboard-item` class with hover shadow glow (`box-shadow: 0 4px 20px rgba(249, 115, 22, 0.15)`) and subtle elevation (`hover:-translate-y-0.5`)
+- **Feature: Hall of Fame**: Added "Saló de la Fama" section in stats panel showing: best day (most lligues in single day), longest streak ever (with holder name), highest rating ever (with person name). Computed from activity and ligues data via useMemo
+- **Feature: Versus Mode**: Added "Versus" section in stats panel with Swords icon. Dropdown to select first candidate, auto-picks second. Shows side-by-side bar chart comparison for Lligues, Valoració, Ratxa, and Fites with color-coded bars (orange vs rose) and green highlighting for winner
+- **Feature: Night Mode Auto-Detection**: Changed darkMode useState initializer to check `localStorage` first, then fall back to `window.matchMedia('(prefers-color-scheme: dark)').matches`
+- **CSS Additions**: Added `@keyframes badge-sparkle` and `.animate-badge-sparkle` class, `.leaderboard-item` hover glow rules
+- **Lint**: Passes clean
+- **File size**: 943 lines (under 950 limit)
+- **API**: All 3 APIs verified working
+
+Stage Summary:
+- 2 bugs fixed (template literal, stale test data)
+- 6 styling improvements (footer, sparkle, pulse, empty state, glassmorphism, hover effect)
+- 3 new features (Hall of Fame, Versus mode, night mode auto-detection)
+- All text in Catalan, lint passes, page serves 200
+
+---
 
 Task ID: fix-page-preview
 Agent: Main Agent

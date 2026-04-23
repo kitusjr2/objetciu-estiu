@@ -88,7 +88,7 @@ export default function Home() {
   const [ligues, setLigues] = useState<LigueEntry[]>([])
   const [toasts, setToasts] = useState<{ id: number; message: string; type: string }[]>([])
   const [showConfetti, setShowConfetti] = useState(false)
-  const [darkMode, setDarkMode] = useState(() => typeof window !== 'undefined' && localStorage.getItem('objetciu-dark-mode') === 'true')
+  const [darkMode, setDarkMode] = useState(() => { if (typeof window === 'undefined') return false; const stored = localStorage.getItem('objetciu-dark-mode'); if (stored !== null) return stored === 'true'; return window.matchMedia('(prefers-color-scheme: dark)').matches })
   const [showTimeline, setShowTimeline] = useState(false)
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -109,6 +109,7 @@ export default function Home() {
   const [hasLastAction, setHasLastAction] = useState(false)
   const [activeTab, setActiveTab] = useState<'grid' | 'list'>('grid')
   const [showProfileModal, setShowProfileModal] = useState<string | null>(null)
+  const [versusIds, setVersusIds] = useState<[string, string] | null>(null)
   const [quote] = useState(() => MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)])
   const prevRanks = useRef<Record<string, number>>({})
   const toastId = useRef(0)
@@ -275,6 +276,21 @@ export default function Home() {
   const [summerDays, setSummerDays] = useState('')
   useEffect(() => { const end = new Date('2026-09-22'); const u = () => { const d = Math.floor((end.getTime() - Date.now()) / 86400000); const h = Math.floor(((end.getTime() - Date.now()) % 86400000) / 3600000); setSummerDays(`${d}d ${h}h`) }; u(); const iv = setInterval(u, 60000); return () => clearInterval(iv) }, [])
 
+  // Hall of Fame records
+  const hallOfFame = useMemo(() => {
+    const inc = activity.filter(a => a.action === 'increment')
+    // Most lligues in a single day
+    const dayCounts: Record<string, number> = {}
+    inc.forEach(a => { const d = new Date(a.createdAt).toISOString().slice(0, 10); dayCounts[d] = (dayCounts[d] || 0) + 1 })
+    const bestDay = Object.entries(dayCounts).sort((a, b) => b[1] - a[1])[0]
+    // Longest streak ever (across all activity sorted by time per person)
+    let maxStreak = 0; let streakHolder = ''
+    candidates.forEach(c => { const pa = activity.filter(a => a.personId === c.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); let s = 0; for (const e of pa) { if (e.action === 'increment') s++; else break } if (s > maxStreak) { maxStreak = s; streakHolder = c.name } })
+    // Highest rating ever
+    const topRating = ligues.length > 0 ? ligues.reduce((b, l) => l.rating > (b?.rating || 0) ? l : b, ligues[0]) : null
+    return { bestDay: bestDay ? { date: bestDay[0], count: bestDay[1] } : null, maxStreak, streakHolder, topRating }
+  }, [activity, candidates, ligues])
+
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 dark:from-stone-950 dark:via-stone-900 dark:to-stone-950">
       <div className="flex flex-col items-center gap-3">
@@ -316,13 +332,15 @@ export default function Home() {
               <Flame className="w-6 h-6 sm:w-8 sm:h-8 text-orange-500 animate-pulse" />
               <h1 className="text-xl sm:text-3xl md:text-5xl font-extrabold bg-gradient-to-r from-orange-600 via-rose-500 to-pink-500 bg-clip-text text-transparent tracking-tight">Qui lliga més aquest estiu?</h1>
               <Flame className="w-6 h-6 sm:w-8 sm:h-8 text-orange-500 animate-pulse" />
+              <span className="relative flex h-2.5 w-2.5 ml-1"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" /><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" /></span>
             </div>
             <p className="text-[10px] sm:text-xs text-gray-400 dark:text-stone-500 mb-2 italic">&ldquo;{quote}&rdquo;</p>
             <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
-              {/* Total badge */}
+              {/* Total badge with sparkle */}
               <div className={`inline-flex items-center gap-2 px-4 py-2 backdrop-blur-md rounded-2xl shadow-lg border relative overflow-hidden ${darkMode?'bg-stone-800/70 border-stone-700':'bg-white/70 border-orange-100'}`}>
                 <Trophy className="w-5 h-5 text-amber-500" /><span className="font-extrabold text-lg">{totalLligues}</span><span className="text-sm text-gray-500">lligues</span>
                 <div className="absolute inset-0 animate-shimmer-sweep pointer-events-none" />
+                {totalLligues > 0 && Array.from({length:5}).map((_,i) => <span key={i} className="absolute animate-badge-sparkle pointer-events-none text-[8px]" style={{'--sparkle-x':`${15+Math.random()*70}%`,'--sparkle-y':`${15+Math.random()*70}%`,'--sparkle-delay':`${i*0.4}s`} as React.CSSProperties}>✦</span>)}
               </div>
               {/* Summer countdown */}
               <div className="flex items-center gap-1 text-[10px] text-orange-500 font-medium bg-orange-50/50 dark:bg-orange-900/10 px-2 py-1 rounded-full">
@@ -433,7 +451,7 @@ export default function Home() {
                         const achs = ACHIEVEMENTS.filter(a => person.lligatCount >= a.min)
                         return (
                           <div key={person.id} className={`flex items-center gap-3 p-2 rounded-xl transition-all duration-200 hover:bg-orange-50/50 dark:hover:bg-stone-800/30 cursor-pointer ${isExempt?'bg-purple-50/40 dark:bg-purple-900/10':''}`} onClick={() => setShowProfileModal(person.id)}>
-                            <div className="relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ring-2 ${rank===0&&person.lligatCount>0&&!isExempt?'ring-amber-400':'ring-gray-200 dark:ring-stone-700'}">
+                            <div className={`relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ring-2 ${rank===0&&person.lligatCount>0&&!isExempt?'ring-amber-400':'ring-gray-200 dark:ring-stone-700'}`}>
                               <img src={person.photo} alt={person.name} style={IMG_POS[person.id]?{objectPosition:IMG_POS[person.id]}:undefined} className={`w-full h-full object-cover ${isExempt?'grayscale-[30%] opacity-70':''}`} />
                             </div>
                             <div className="flex-1 min-w-0">
@@ -469,7 +487,18 @@ export default function Home() {
                   <div className="flex items-center gap-2 mb-3"><Crown className="w-5 h-5 text-amber-500" /><h2 className="text-lg sm:text-xl font-bold text-gray-800 dark:text-stone-200">Classificació</h2><span className="ml-auto text-[10px] text-gray-400 flex items-center gap-1"><RefreshCw className="w-3 h-3 animate-spin" style={{animationDuration:'3s'}}/>auto</span></div>
                   <Separator className="mb-3 bg-orange-100 dark:bg-stone-700" />
                   {nonExempt.every(c => c.lligatCount===0) ? (
-                    <div className="text-center py-8"><Sparkles className="w-10 h-10 text-gray-200 dark:text-stone-700 mx-auto mb-3 animate-bounce" /><p className="text-sm text-gray-400 italic">Encara ningú ha lligat...</p><p className="text-xs text-gray-300 mt-1">Sigues el primer! 💪</p></div>
+                    <div className="text-center py-10">
+                      <div className="relative mx-auto w-24 h-24 mb-4">
+                        <div className="absolute inset-0 rounded-full bg-orange-100 dark:bg-orange-900/20 animate-pulse" />
+                        <Sparkles className="absolute inset-0 m-auto w-10 h-10 text-orange-300 dark:text-orange-700 animate-bounce" />
+                        <span className="absolute -top-1 -right-1 text-lg animate-float-slow">💫</span>
+                        <span className="absolute -bottom-1 -left-1 text-sm animate-float-medium">✨</span>
+                        <span className="absolute top-1/2 -right-2 text-xs animate-float-fast">⭐</span>
+                      </div>
+                      <p className="text-sm text-gray-400 italic">Encara ningú ha lligat...</p>
+                      <p className="text-xs text-gray-300 mt-1">Sigues el primer! 💪</p>
+                      <div className="flex items-center justify-center gap-1 mt-3 text-[10px] text-orange-400/60 animate-pulse"><Flame className="w-3 h-3" />La nit és jove</div>
+                    </div>
                   ) : (
                     <div className="space-y-2 max-h-[560px] overflow-y-auto custom-scrollbar">{sorted.map((person, index) => {
                       const maxCount = sorted.filter(c => !EXEMPT_IDS.has(c.id))[0]?.lligatCount || 1
@@ -478,7 +507,7 @@ export default function Home() {
                       const rc = rankChanges[person.id]||0; const isExempt = EXEMPT_IDS.has(person.id)
                       const stripe = !isExempt&&index===0?'rank-stripe-gold animate-gradient-border':!isExempt&&index===1?'rank-stripe-silver':!isExempt&&index===2?'rank-stripe-bronze':''
                       return (
-                        <div key={person.id} className={`relative flex items-center gap-2.5 p-2.5 rounded-xl transition-all duration-300 animate-card-entrance ${stripe} ${isExempt?'bg-purple-50/60 dark:bg-purple-900/15 border border-purple-200/40 dark:border-purple-800/30':index===0?'bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/50 dark:border-amber-800/50':index===1?'bg-gray-50/80 dark:bg-stone-800/30 border border-gray-200/50 dark:border-stone-700/50':index===2?'bg-orange-50/80 dark:bg-orange-900/15 border border-orange-200/50 dark:border-orange-800/50':'border border-transparent hover:bg-orange-50/30 dark:hover:bg-stone-800/20'}`} style={{ animationDelay: `${index*40}ms` }}>
+                        <div key={person.id} className={`relative flex items-center gap-2.5 p-2.5 rounded-xl transition-all duration-300 animate-card-entrance hover:shadow-lg hover:shadow-orange-200/20 dark:hover:shadow-orange-500/5 hover:-translate-y-0.5 leaderboard-item ${stripe} ${isExempt?'bg-purple-50/60 dark:bg-purple-900/15 border border-purple-200/40 dark:border-purple-800/30':index===0?'bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/50 dark:border-amber-800/50':index===1?'bg-gray-50/80 dark:bg-stone-800/30 border border-gray-200/50 dark:border-stone-700/50':index===2?'bg-orange-50/80 dark:bg-orange-900/15 border border-orange-200/50 dark:border-orange-800/50':'border border-transparent hover:bg-orange-50/30 dark:hover:bg-stone-800/20'}`} style={{ animationDelay: `${index*40}ms` }}>
                           <div className="flex flex-col items-center w-8 flex-shrink-0">
                             <span className="text-lg">{isExempt?'🏳️':index===0?'👑':index===1?'🥈':index===2?'🥉':index+1}</span>
                             {rc!==0&&!isExempt && (<span className={`text-[9px] font-bold flex items-center gap-0.5 animate-rank-bounce ${rc>0?'text-green-500':'text-red-500'}`}>{rc>0?(<ArrowUp className="w-2.5 h-2.5"/>):(<ArrowDown className="w-2.5 h-2.5"/>)}{Math.abs(rc)}</span>)}
@@ -627,6 +656,57 @@ export default function Home() {
                       ))}</div>
                     </div>
                   )}
+                  {/* Hall of Fame */}
+                  {(hallOfFame.bestDay || hallOfFame.maxStreak > 0 || hallOfFame.topRating) && (
+                    <div className="mt-3 p-2.5 rounded-lg bg-gradient-to-r from-amber-50/50 to-yellow-50/50 dark:from-amber-900/15 dark:to-yellow-900/10 border border-amber-100/30 dark:border-amber-800/20">
+                      <div className="flex items-center gap-1.5 mb-2"><Crown className="w-3 h-3 text-amber-500" /><span className="text-[10px] font-bold text-gray-500 dark:text-stone-400">Saló de la Fama</span></div>
+                      <div className="space-y-1.5">
+                        {hallOfFame.bestDay && <div className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-lg bg-amber-50/60 dark:bg-amber-900/10 border border-amber-100/20 dark:border-amber-800/15"><span>📅</span><span className="text-gray-600 dark:text-stone-400">Millor dia:</span><span className="font-bold text-amber-600 dark:text-amber-400 ml-auto">{hallOfFame.bestDay.count} lligades</span></div>}
+                        {hallOfFame.maxStreak > 0 && <div className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-lg bg-orange-50/60 dark:bg-orange-900/10 border border-orange-100/20 dark:border-orange-800/15"><span>🔥</span><span className="text-gray-600 dark:text-stone-400">Ratxa màxima: <strong>{hallOfFame.streakHolder}</strong></span><span className="font-bold text-orange-600 dark:text-orange-400 ml-auto">{hallOfFame.maxStreak}</span></div>}
+                        {hallOfFame.topRating && hallOfFame.topRating.rating > 0 && <div className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-lg bg-rose-50/60 dark:bg-rose-900/10 border border-rose-100/20 dark:border-rose-800/15"><span>⭐</span><span className="text-gray-600 dark:text-stone-400">Valoració màxima: <strong>{hallOfFame.topRating.personName}</strong></span><span className="font-bold text-rose-600 dark:text-rose-400 ml-auto">{hallOfFame.topRating.rating}/10</span></div>}
+                      </div>
+                    </div>
+                  )}
+                  {/* Versus Mode */}
+                  {nonExempt.length >= 2 && (
+                    <div className="mt-3 p-2.5 rounded-lg bg-gradient-to-r from-red-50/50 to-orange-50/50 dark:from-red-900/10 dark:to-orange-900/10 border border-red-100/30 dark:border-red-800/20">
+                      <div className="flex items-center gap-1.5 mb-2"><Swords className="w-3 h-3 text-red-500" /><span className="text-[10px] font-bold text-gray-500 dark:text-stone-400">Versus</span></div>
+                      {!versusIds ? (
+                        <div className="flex gap-1.5">
+                          <select className="flex-1 h-7 text-[10px] rounded-lg bg-white/60 dark:bg-stone-800/60 border border-orange-100 dark:border-stone-700 px-1" defaultValue="" onChange={e => { if (e.target.value) { const a = nonExempt.find(c => c.id !== e.target.value); if (a) setVersusIds([e.target.value, a.id]) } }}>
+                            <option value="" disabled>Selecciona...</option>
+                            {nonExempt.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                        </div>
+                      ) : (() => {
+                        const a = candidates.find(c => c.id === versusIds[0]); const b = candidates.find(c => c.id === versusIds[1])
+                        if (!a || !b) return null
+                        const sA = { l: a.lligatCount, r: getAvgRating(a.id), st: getStreak(a.id), ac: ACHIEVEMENTS.filter(x => a.lligatCount >= x.min).length }
+                        const sB = { l: b.lligatCount, r: getAvgRating(b.id), st: getStreak(b.id), ac: ACHIEVEMENTS.filter(x => b.lligatCount >= x.min).length }
+                        const mx = { l: Math.max(sA.l, sB.l, 1), r: Math.max(sA.r, sB.r, 1), st: Math.max(sA.st, sB.st, 1), ac: Math.max(sA.ac, sB.ac, 1) }
+                        return (
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <span className="flex-1 text-[10px] font-bold text-gray-700 dark:text-stone-300 truncate text-right">{a.name}</span>
+                              <span className="text-red-500 text-xs">⚔️</span>
+                              <span className="flex-1 text-[10px] font-bold text-gray-700 dark:text-stone-300 truncate">{b.name}</span>
+                            </div>
+                            {[['Lligues',sA.l,sB.l,'l'],['Valoració',sA.r.toFixed(1),sB.r.toFixed(1),'r'],['Ratxa',sA.st,sB.st,'st'],['Fites',sA.ac,sB.ac,'ac']].map(([label,vA,vB,key]) => (
+                              <div key={key as string} className="flex items-center gap-1 text-[9px] mb-1">
+                                <span className={`w-6 text-right font-bold ${Number(vA)>Number(vB)?'text-green-600 dark:text-green-400':'text-gray-400'}`}>{vA}</span>
+                                <div className="flex-1 flex gap-0.5 h-2">
+                                  <div className="flex-1 flex justify-end"><div className="bg-orange-400 dark:bg-orange-500 rounded-l-full transition-all" style={{width:`${(Number(vA)/mx[key as keyof typeof mx])*100}%`}} /></div>
+                                  <div className="flex-1"><div className="bg-rose-400 dark:bg-rose-500 rounded-r-full transition-all" style={{width:`${(Number(vB)/mx[key as keyof typeof mx])*100}%`}} /></div>
+                                </div>
+                                <span className={`w-6 font-bold ${Number(vB)>Number(vA)?'text-green-600 dark:text-green-400':'text-gray-400'}`}>{vB}</span>
+                              </div>
+                            ))}
+                            <button onClick={() => setVersusIds(null)} className="text-[9px] text-gray-400 hover:text-gray-600 mt-1 underline">Canviar</button>
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
               {/* Rules */}
@@ -671,9 +751,9 @@ export default function Home() {
           const rank = sorted.findIndex(s => s.id === person.id)
           const isExempt = EXEMPT_IDS.has(person.id)
           return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowProfileModal(null)}>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xl" onClick={() => setShowProfileModal(null)}>
               <div className="w-full max-w-md max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                <Card className="bg-white dark:bg-stone-900 shadow-2xl border-2 border-orange-200 dark:border-orange-800 overflow-hidden">
+                <Card className="bg-white/80 dark:bg-stone-900/80 shadow-2xl border border-white/30 dark:border-stone-700/50 backdrop-blur-2xl overflow-hidden">
                   <div className="h-2 bg-gradient-to-r from-orange-400 via-rose-400 to-pink-500" />
                   <CardContent className="p-5">
                     <div className="flex items-center justify-between mb-4">
@@ -771,9 +851,9 @@ export default function Home() {
 
         {/* LIGUE FORM MODAL */}
         {showLigueForm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={skipLigue}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xl" onClick={skipLigue}>
             <div className="w-full max-w-md animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-              <Card className="bg-white dark:bg-stone-900 shadow-2xl border-2 border-orange-200 dark:border-orange-800 overflow-hidden">
+              <Card className="bg-white/80 dark:bg-stone-900/80 shadow-2xl border border-white/30 dark:border-stone-700/50 backdrop-blur-2xl overflow-hidden">
                 <div className="h-2 bg-gradient-to-r from-orange-400 via-rose-400 to-pink-500" />
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-4">
@@ -797,9 +877,9 @@ export default function Home() {
 
         {/* LIGUE HISTORY MODAL */}
         {showLigueHistory && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowLigueHistory(null)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xl" onClick={() => setShowLigueHistory(null)}>
             <div className="w-full max-w-lg max-h-[80vh] overflow-y-auto animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-              <Card className="bg-white dark:bg-stone-900 shadow-2xl border-2 border-orange-200 dark:border-orange-800 overflow-hidden">
+              <Card className="bg-white/80 dark:bg-stone-900/80 shadow-2xl border border-white/30 dark:border-stone-700/50 backdrop-blur-2xl overflow-hidden">
                 <div className="h-2 bg-gradient-to-r from-cyan-400 to-emerald-400" />
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-4">
@@ -827,9 +907,9 @@ export default function Home() {
 
         {/* SHARE MODAL */}
         {showShareModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setShowShareModal(false)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xl" onClick={() => setShowShareModal(false)}>
             <div className="w-full max-w-md animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-              <Card className="bg-white dark:bg-stone-900 shadow-2xl border-2 border-emerald-200 dark:border-emerald-800 overflow-hidden">
+              <Card className="bg-white/80 dark:bg-stone-900/80 shadow-2xl border border-white/30 dark:border-stone-700/50 backdrop-blur-2xl overflow-hidden">
                 <div className="h-2 bg-gradient-to-r from-emerald-400 to-teal-400" />
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-3"><h3 className="font-bold text-gray-800 dark:text-stone-200">Compartir</h3><button onClick={() => setShowShareModal(false)} aria-label="Tancar" className="text-gray-400 hover:text-gray-600 transition-colors"><X className="w-5 h-5" /></button></div>
@@ -850,10 +930,11 @@ export default function Home() {
         </Dialog>
 
         {/* FOOTER */}
-        <footer className="relative z-10 mt-auto py-3 px-4 text-center border-t border-orange-100/30 dark:border-stone-800/30 bg-white/30 dark:bg-stone-900/30 backdrop-blur-sm">
-          <div className="flex items-center justify-center gap-3 text-[10px] text-gray-400 dark:text-stone-600">
-            <span>🔥 Qui lliga més? &copy; {new Date().getFullYear()}</span>
-            {lastActTime && lastActTime !== '' && <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" />Última: {lastActTime}</span>}
+        <footer className="relative z-10 mt-auto py-3 px-4 border-t border-orange-100/30 dark:border-stone-800/30 bg-white/40 dark:bg-stone-900/40 backdrop-blur-sm">
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[10px] text-gray-400 dark:text-stone-500">
+            <span className="flex items-center gap-1"><Flame className="w-3 h-3 text-orange-400" />Made with 🔥</span>
+            <span className="flex items-center gap-1"><Users className="w-3 h-3" />{candidates.length} participants</span>
+            {lastActTime && <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" />Última activitat: {lastActTime}</span>}
           </div>
         </footer>
       </div>

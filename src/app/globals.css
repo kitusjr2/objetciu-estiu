@@ -410,3 +410,26 @@ button:active:hover {
 .candidate-card-hover:hover::before {
   opacity: 1;
 }
+
+/* ─── Badge sparkle particles ─── */
+@keyframes badge-sparkle {
+  0%, 100% { opacity: 0; transform: translate(0, 0) scale(0.5); }
+  50% { opacity: 1; transform: translate(var(--sparkle-x, 50%), var(--sparkle-y, 50%)) scale(1); }
+}
+.animate-badge-sparkle {
+  animation: badge-sparkle 2s ease-in-out infinite;
+  animation-delay: var(--sparkle-delay, 0s);
+  color: #f59e0b;
+  left: 0; top: 0;
+}
+
+/* ─── Leaderboard item hover glow ─── */
+.leaderboard-item {
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+.leaderboard-item:hover {
+  box-shadow: 0 4px 20px rgba(249, 115, 22, 0.15);
+}
+.dark .leaderboard-item:hover {
+  box-shadow: 0 4px 20px rgba(249, 115, 22, 0.08);
+}
