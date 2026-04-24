@@ -43,14 +43,21 @@ export async function sendPushToAll(payload: {
               auth: sub.auth,
             },
           },
-          pushPayload
+          pushPayload,
+          {
+            TTL: 86400, // 24 hours - message stays valid if device is offline
+            urgency: 'high', // Ensure delivery even in power-saving mode
+            topic: 'ligue-update', // Collapse similar notifications
+          }
         )
       } catch (error: any) {
+        console.error(`Push failed for ${sub.endpoint.substring(0, 50)}: ${error.statusCode} ${error.message?.substring(0, 100)}`)
         // If subscription is expired or invalid, remove it
         if (error.statusCode === 404 || error.statusCode === 410) {
           await db.pushSubscription.deleteMany({
             where: { endpoint: sub.endpoint },
           })
+          console.log(`Removed expired subscription: ${sub.endpoint.substring(0, 50)}`)
         }
         throw error
       }
@@ -59,5 +66,5 @@ export async function sendPushToAll(payload: {
 
   const succeeded = results.filter((r) => r.status === 'fulfilled').length
   const failed = results.filter((r) => r.status === 'rejected').length
-  console.log(`Push sent: ${succeeded} succeeded, ${failed} failed`)
+  console.log(`Push sent: ${succeeded} succeeded, ${failed} failed out of ${subscriptions.length} total`)
 }

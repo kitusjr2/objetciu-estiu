@@ -348,34 +348,67 @@ export default function Home() {
   }, [])
 
   // PWA: Push notification subscription
+  // Convert VAPID key to Uint8Array (required by some mobile browsers)
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4)
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+    const rawData = window.atob(base64)
+    return Uint8Array.from(rawData, (char) => char.charCodeAt(0))
+  }
+
+  const VAPID_KEY = 'BO0XN2awCevIJa4sawE2vsSQZq3uNNdY_UiSFRD0UlFLzajg0_MX8HuA9gebJNoWO1j5KyTquWtqL74fD1oc0bI'
+
   useEffect(() => {
     if (!pushEnabled) return
 
     const subscribeToPush = async () => {
       try {
+        // Make sure service worker is fully ready
         const registration = await navigator.serviceWorker.ready
-        const existingSub = await registration.pushManager.getSubscription()
 
-        if (existingSub) {
-          // Already subscribed, make sure server knows
-          await fetch('/api/push-subscribe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              endpoint: existingSub.endpoint,
-              keys: existingSub.toJSON().keys,
-              userAgent: navigator.userAgent,
-            }),
-          })
+        // Check permission first
+        if (Notification.permission === 'denied') {
+          console.log('Push notifications blocked by user')
           return
         }
 
-        const vapidKey = 'BO0XN2awCevIJa4sawE2vsSQZq3uNNdY_UiSFRD0UlFLzajg0_MX8HuA9gebJNoWO1j5KyTquWtqL74fD1oc0bI'
+        // Request permission if not yet granted
+        if (Notification.permission === 'default') {
+          const permission = await Notification.requestPermission()
+          if (permission !== 'granted') {
+            console.log('Push notification permission not granted')
+            return
+          }
+        }
+
+        const existingSub = await registration.pushManager.getSubscription()
+
+        if (existingSub) {
+          // Already subscribed - re-send to server in case it was lost
+          try {
+            await fetch('/api/push-subscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                endpoint: existingSub.endpoint,
+                keys: existingSub.toJSON().keys,
+                userAgent: navigator.userAgent,
+              }),
+            })
+          } catch (e) {
+            console.log('Failed to re-register subscription:', e)
+          }
+          return
+        }
+
+        // New subscription - convert VAPID key for mobile compatibility
+        const applicationServerKey = urlBase64ToUint8Array(VAPID_KEY)
         const sub = await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: vapidKey,
+          applicationServerKey,
         })
 
+        // Send subscription to server
         await fetch('/api/push-subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -385,26 +418,42 @@ export default function Home() {
             userAgent: navigator.userAgent,
           }),
         })
+
+        console.log('Push subscription successful!')
       } catch (err) {
         console.log('Push subscription failed:', err)
       }
     }
 
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      subscribeToPush()
-    }
+    // Small delay to ensure SW is fully active
+    const timer = setTimeout(() => {
+      if ('serviceWorker' in navigator && 'PushManager' in window) {
+        subscribeToPush()
+      }
+    }, 2000)
+
+    return () => clearTimeout(timer)
   }, [pushEnabled])
 
   // Toggle push notifications
   const togglePush = useCallback(async () => {
     if (!pushEnabled) {
+      // Turning on
       setPushEnabled(true)
       localStorage.setItem('objetciu-push', 'true')
       if (Notification.permission === 'default') {
-        await Notification.requestPermission()
+        const perm = await Notification.requestPermission()
+        if (perm !== 'granted') {
+          addToast('Cal permetre notificacions al navegador ⚠️', 'warning')
+          return
+        }
+      } else if (Notification.permission === 'denied') {
+        addToast('Notificacions bloquejades. Ves a Configuració del navegador per activar-les ⚠️', 'warning')
+        return
       }
       addToast('Notificacions activades! 🔔', 'success')
     } else {
+      // Turning off
       setPushEnabled(false)
       localStorage.setItem('objetciu-push', 'false')
       try {
