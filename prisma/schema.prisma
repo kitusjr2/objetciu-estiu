@@ -38,3 +38,12 @@ model Ligue {
   rating     Int      @default(0)
   createdAt  DateTime @default(now())
 }
+
+model PushSubscription {
+  id          String   @id @default(cuid())
+  endpoint    String   @unique
+  p256dh      String
+  auth        String
+  userAgent   String   @default("")
+  createdAt   DateTime @default(now())
+}

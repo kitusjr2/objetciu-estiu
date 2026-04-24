@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { sendPushToAll } from '@/lib/push'
 import { NextRequest } from 'next/server'
 
 export async function PATCH(
@@ -32,6 +33,18 @@ export async function PATCH(
       value: lligatCount,
     },
   })
+
+  // Send push notification on increment
+  if (lligatCount > candidate.lligatCount) {
+    sendPushToAll({
+      title: '🔥 Nova lligada!',
+      body: `${candidate.name} ha lligat! (${lligatCount} lligades)`,
+      icon: candidate.photo,
+      url: '/',
+      personName: candidate.name,
+      type: 'increment',
+    }).catch(console.error)
+  }
 
   return Response.json(updated)
 }

@@ -16,7 +16,7 @@ import {
   Flame, Trophy, Heart, RotateCcw, Star, Zap, Crown, Sparkles,
   Moon, Sun, Share2, Clock, ChevronUp, Users,
   ArrowUp, ArrowDown, RefreshCw, X, Trash2, TrendingUp, MapPin, Calendar, Award,
-  Volume2, VolumeX, Target, Timer, Swords, Gauge, Undo2, Search,
+  Volume2, VolumeX, Bell, BellOff, Target, Timer, Swords, Gauge, Undo2, Search,
   PartyPopper, Activity, Eye, Info, MessageCircle, BarChart3, Medal, Pencil, Wine,
   Download, WifiOff, Wifi,
 } from 'lucide-react'
@@ -104,6 +104,7 @@ export default function Home() {
   const [ligueRating, setLigueRating] = useState(0)
   const [showLigueHistory, setShowLigueHistory] = useState<string | null>(null)
   const [soundEnabled, setSoundEnabled] = useState(() => typeof window === 'undefined' || localStorage.getItem('objetciu-sound') !== 'false')
+  const [pushEnabled, setPushEnabled] = useState(() => typeof window !== 'undefined' && localStorage.getItem('objetciu-push') !== 'false')
   const [rankChanges, setRankChanges] = useState<Record<string, number>>({})
   const [searchQuery, setSearchQuery] = useState('')
   const [ligueHintId, setLigueHintId] = useState<string | null>(null)
@@ -346,6 +347,82 @@ export default function Home() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
   }, [])
 
+  // PWA: Push notification subscription
+  useEffect(() => {
+    if (!pushEnabled) return
+
+    const subscribeToPush = async () => {
+      try {
+        const registration = await navigator.serviceWorker.ready
+        const existingSub = await registration.pushManager.getSubscription()
+
+        if (existingSub) {
+          // Already subscribed, make sure server knows
+          await fetch('/api/push-subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              endpoint: existingSub.endpoint,
+              keys: existingSub.toJSON().keys,
+              userAgent: navigator.userAgent,
+            }),
+          })
+          return
+        }
+
+        const vapidKey = 'BO0XN2awCevIJa4sawE2vsSQZq3uNNdY_UiSFRD0UlFLzajg0_MX8HuA9gebJNoWO1j5KyTquWtqL74fD1oc0bI'
+        const sub = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: vapidKey,
+        })
+
+        await fetch('/api/push-subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            endpoint: sub.endpoint,
+            keys: sub.toJSON().keys,
+            userAgent: navigator.userAgent,
+          }),
+        })
+      } catch (err) {
+        console.log('Push subscription failed:', err)
+      }
+    }
+
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      subscribeToPush()
+    }
+  }, [pushEnabled])
+
+  // Toggle push notifications
+  const togglePush = useCallback(async () => {
+    if (!pushEnabled) {
+      setPushEnabled(true)
+      localStorage.setItem('objetciu-push', 'true')
+      if (Notification.permission === 'default') {
+        await Notification.requestPermission()
+      }
+      addToast('Notificacions activades! 🔔', 'success')
+    } else {
+      setPushEnabled(false)
+      localStorage.setItem('objetciu-push', 'false')
+      try {
+        const registration = await navigator.serviceWorker.ready
+        const sub = await registration.pushManager.getSubscription()
+        if (sub) {
+          await fetch('/api/push-subscribe', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint: sub.endpoint }),
+          })
+          await sub.unsubscribe()
+        }
+      } catch {}
+      addToast('Notificacions desactivades 🔕', 'info')
+    }
+  }, [pushEnabled, addToast])
+
   const installApp = useCallback(() => {
     if (!installPrompt) return
     installPrompt.prompt()
@@ -446,6 +523,7 @@ export default function Home() {
                 <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => setNightMode(!nightMode)} aria-label={nightMode?'Mode normal':'Mode nit'} className={`${hdrBtn} ${nightMode?'bg-rose-100 dark:bg-rose-900/30 border-rose-300 dark:border-rose-700':''}`}><Wine className="w-3.5 h-3.5" /><span className="hidden sm:inline text-[10px]">{nightMode?'Tornar':'Nit'}</span></Button></TooltipTrigger><TooltipContent>{nightMode?'Mode normal':'Mode Nit 🍷'}</TooltipContent></Tooltip>
                 <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => setShowResetConfirm(true)} aria-label="Reiniciar comptadors" className={`${hdrBtn} hover:bg-red-50 dark:hover:bg-red-900/20`}><RotateCcw className="w-3.5 h-3.5" /></Button></TooltipTrigger><TooltipContent>Reiniciar</TooltipContent></Tooltip>
                 <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => setSoundEnabled(!soundEnabled)} aria-label={soundEnabled?'Silenciar so':'Activar so'} className={hdrBtn}>{soundEnabled?<Volume2 className="w-3.5 h-3.5"/>:<VolumeX className="w-3.5 h-3.5"/>}</Button></TooltipTrigger><TooltipContent>{soundEnabled?'Silenciar':'So'}</TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={togglePush} aria-label={pushEnabled?'Desactivar notificacions':'Activar notificacions'} className={hdrBtn}>{pushEnabled?<Bell className="w-3.5 h-3.5"/>:<BellOff className="w-3.5 h-3.5"/>}</Button></TooltipTrigger><TooltipContent>{pushEnabled?'Silenciar notificacions':'Notificacions'}</TooltipContent></Tooltip>
               </div>
             </div>
           </div>
