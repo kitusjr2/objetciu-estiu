@@ -353,3 +353,66 @@ Stage Summary:
 - 4 styling improvements (profile modal animation, caliente indicator, rating bar, footer)
 - 3 new features (Night Out Mode, Activity notification badge, Enhanced share)
 - Code at 1053 lines, lint clean, all APIs functional
+
+---
+Task ID: 16
+Agent: Main Agent
+Task: Make app deployable to Vercel+Turso (PWA, installable, persistent), fix page down
+
+Work Log:
+- **Fixed page down**: Dev server was not running. Restarted using C double-fork daemon approach (/tmp/daemon, /tmp/start-next.sh)
+- **Database: Turso/libsql compatibility**: 
+  - Installed `@libsql/client` and `@prisma/adapter-libsql`
+  - Updated `prisma/schema.prisma` to add `previewFeatures = ["driverAdapters"]`
+  - Rewrote `src/lib/db.ts` to auto-detect: if DATABASE_URL starts with `libsql://`, uses Turso adapter; otherwise uses local SQLite file
+  - Fixed export name: `PrismaLibSql` (not `PrismaLibSQL`)
+  - Regenerated Prisma client
+- **PWA: Manifest**: Created `public/manifest.json` with app name "Qui Lliga Més Aquest Estiu?", short_name "QuiLliga", standalone display, orange theme, icons
+- **PWA: Service Worker**: Created `public/sw.js` with network-first for API, cache-first for static assets, offline fallback
+- **PWA: Icons**: Generated 192x192 and 512x512 app icons using Python PIL (orange-rose gradient with flame emoji)
+- **PWA: Install Prompt**: Added `beforeinstallprompt` listener, install banner UI (gradient orange-rose bar with "Instal·la l'app!" CTA)
+- **PWA: Offline Detection**: Added online/offline event listeners, amber "Sense connexió — mode offline" banner when offline
+- **PWA: Service Worker Registration**: Added `navigator.serviceWorker.register('/sw.js')` in useEffect
+- **Layout: Metadata**: Completely rewrote `src/app/layout.tsx`:
+  - Title: "Qui Lliga Més Aquest Estiu? 🔥"
+  - Description in Catalan
+  - Manifest link, apple-touch-icon, apple-mobile-web-app-capable
+  - Theme color (light: #fafaf9, dark: #0c0a09)
+  - Viewport with maximum-scale=1, userScalable=false for app-like feel
+  - Lang changed from "en" to "ca"
+- **Next Config**: Added service worker headers (Cache-Control, Service-Worker-Allowed)
+- **Lint**: Passes clean
+- **API**: All endpoints working after Turso compatibility changes
+- **Page**: Renders correctly with new title and PWA support
+
+Stage Summary:
+- App is now ready for deployment to Vercel + Turso
+- PWA installable on mobile devices (manifest, service worker, icons)
+- Database auto-detects local vs Turso (no code changes needed for deployment)
+- Offline mode with cached API responses
+- Install prompt banner for mobile users
+- All code changes backward-compatible with current local setup
+
+## Current Project Status (Updated)
+
+**Project**: "Qui lliga més aquest estiu?" - Competitive summer hookup leaderboard
+**Status**: Code ready for deployment to Vercel + Turso. PWA support added.
+**Deployment Target**: Vercel (free) + Turso (free) = 0€/month
+**Route**: Single page at `/`
+**Participants**: 11 (Ian, Putraskito, Pol, Rui, Clone, Dani, Max, Debig, Baldo, Roki, ElRey)
+**Exempt from leaderboard**: ElRey
+
+## Unresolved Issues / Risks
+
+- **Deployment not done yet**: User needs to push code to GitHub, set up Turso, and deploy to Vercel
+- Sandbox memory issues persist (infrastructure constraint, will be resolved on Vercel)
+- No authentication - anyone can modify counts (by design)
+- Auto-refresh is polling-based (10s interval)
+
+## Priority Recommendations for Next Phase
+
+- Deploy to Vercel + Turso (instructions provided to user)
+- Test PWA install flow on mobile
+- Add push notifications for real-time updates
+- Make exempt status configurable via admin UI
+- Add ligue detail time-based filtering

@@ -18,6 +18,7 @@ import {
   ArrowUp, ArrowDown, RefreshCw, X, Trash2, TrendingUp, MapPin, Calendar, Award,
   Volume2, VolumeX, Target, Timer, Swords, Gauge, Undo2, Search,
   PartyPopper, Activity, Eye, Info, MessageCircle, BarChart3, Medal, Pencil, Wine,
+  Download, WifiOff, Wifi,
 } from 'lucide-react'
 
 /* ─── Types ─── */
@@ -121,6 +122,9 @@ export default function Home() {
   const [footerTime, setFooterTime] = useState('')
   const [nightMode, setNightMode] = useState(false)
   const [newActivityCount, setNewActivityCount] = useState(0)
+  const [isOnline, setIsOnline] = useState(true)
+  const [installPrompt, setInstallPrompt] = useState<any>(null)
+  const [showInstallBanner, setShowInstallBanner] = useState(false)
   const lastActivityLen = useRef(0)
   const prevRanks = useRef<Record<string, number>>({})
   const toastId = useRef(0)
@@ -320,6 +324,34 @@ export default function Home() {
   // Footer time
   useEffect(() => { const u = () => setFooterTime(new Date().toLocaleString('ca-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })); u(); const iv = setInterval(u, 60000); return () => clearInterval(iv) }, [])
 
+  // PWA: Register service worker
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {})
+    }
+  }, [])
+
+  // PWA: Listen for install prompt
+  useEffect(() => {
+    const handler = (e: Event) => { e.preventDefault(); setInstallPrompt(e); setShowInstallBanner(true) }
+    window.addEventListener('beforeinstallprompt', handler)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  // PWA: Online/offline detection
+  useEffect(() => {
+    setIsOnline(navigator.onLine)
+    const on = () => setIsOnline(true); const off = () => setIsOnline(false)
+    window.addEventListener('online', on); window.addEventListener('offline', off)
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
+  }, [])
+
+  const installApp = useCallback(() => {
+    if (!installPrompt) return
+    installPrompt.prompt()
+    installPrompt.userChoice.then(() => { setInstallPrompt(null); setShowInstallBanner(false) })
+  }, [installPrompt])
+
   // Keyboard shortcuts
   useEffect(() => {
     const h = (e: KeyboardEvent) => { const tag = (e.target as HTMLElement)?.tagName; const ce = (e.target as HTMLElement)?.contentEditable; if (tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||ce==='true') return; if ((e.ctrlKey||e.metaKey)&&e.key==='z') { e.preventDefault(); undoLast() } else if (e.key==='d'||e.key==='D') setDarkMode(p=>!p); else if (e.key==='s'||e.key==='S') setSoundEnabled(p=>!p); else if (e.key==='?') addToast('⌨️ D=fosc, S=so, Ctrl+Z=desfer, ?=ajuda','info') }
@@ -361,6 +393,28 @@ export default function Home() {
             {baseType==='success'?<Star className="w-4 h-4"/>:baseType==='warning'?<Trophy className="w-4 h-4"/>:<Zap className="w-4 h-4"/>} {t.message}
           </div>)
         })}</div>
+
+        {/* Install Banner */}
+        {showInstallBanner && (
+          <div className="fixed bottom-4 left-4 right-4 z-50 max-w-md mx-auto animate-in slide-in-from-bottom duration-500">
+            <div className="flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl border bg-gradient-to-r from-orange-500 to-rose-500 text-white border-white/20 backdrop-blur-xl">
+              <Download className="w-5 h-5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold">Instal·la l'app!</p>
+                <p className="text-xs opacity-90">Afegeix a la pantalla d'inici per accés ràpid</p>
+              </div>
+              <button onClick={installApp} className="px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-bold transition-colors shrink-0">Instal·lar</button>
+              <button onClick={() => setShowInstallBanner(false)} className="shrink-0 opacity-60 hover:opacity-100"><X className="w-4 h-4" /></button>
+            </div>
+          </div>
+        )}
+
+        {/* Offline Banner */}
+        {!isOnline && (
+          <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center gap-2 py-2 bg-amber-500 text-white text-xs font-medium animate-in slide-in-from-top">
+            <WifiOff className="w-3.5 h-3.5" /> Sense connexió — mode offline
+          </div>
+        )}
 
         {/* HEADER */}
         <header className="relative z-10 pt-4 sm:pt-6 pb-3 px-4">

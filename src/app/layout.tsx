@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
@@ -13,25 +13,42 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fafaf9" },
+    { media: "(prefers-color-scheme: dark)", color: "#0c0a09" },
+  ],
+}
+
 export const metadata: Metadata = {
-  title: "Z.ai Code Scaffold - AI-Powered Development",
-  description: "Modern Next.js scaffold optimized for AI-powered development with Z.ai. Built with TypeScript, Tailwind CSS, and shadcn/ui.",
-  keywords: ["Z.ai", "Next.js", "TypeScript", "Tailwind CSS", "shadcn/ui", "AI development", "React"],
-  authors: [{ name: "Z.ai Team" }],
+  title: "Qui Lliga Més Aquest Estiu? 🔥",
+  description: "Competició de lligues d'estiu entre amics. Qui lliga més? Segueix el marcador en temps real!",
+  keywords: ["lligues", "estiu", "competició", "amigos", "marcador"],
+  authors: [{ name: "El Grup" }],
+  manifest: "/manifest.json",
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/icon-192.png",
+    apple: "/icon-512.png",
   },
   openGraph: {
-    title: "Z.ai Code Scaffold",
-    description: "AI-powered development with modern React stack",
-    url: "https://chat.z.ai",
-    siteName: "Z.ai",
+    title: "Qui Lliga Més Aquest Estiu? 🔥",
+    description: "Competició de lligues d'estiu. Segueix el marcador en directe!",
     type: "website",
+    locale: "ca_ES",
   },
   twitter: {
-    card: "summary_large_image",
-    title: "Z.ai Code Scaffold",
-    description: "AI-powered development with modern React stack",
+    card: "summary",
+    title: "Qui Lliga Més Aquest Estiu? 🔥",
+    description: "Competició de lligues d'estiu. Segueix el marcador en directe!",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "QuiLliga",
   },
 };
 
@@ -41,7 +58,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="ca" suppressHydrationWarning>
+      <head>
+        <link rel="apple-touch-icon" href="/icon-512.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
