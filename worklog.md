@@ -558,3 +558,62 @@ After fixing env vars, redeploy on Vercel, then visit /api/health to verify.
 - **Mobile push notifications**: Desktop works, mobile doesn't
 - No authentication - anyone can modify counts (by design)
 - Auto-refresh is polling-based (10s interval)
+
+---
+Task ID: 19
+Agent: Main Agent
+Task: Fix Vercel Turso DB connection - PrismaLibSQL Factory API fix
+
+Work Log:
+- **Diagnosed ROOT CAUSE**: The `PrismaLibSQL` adapter changed to a Factory pattern in Prisma v6.19+
+  - Old (broken): `new PrismaLibSQL(createClient({url, authToken}))` — passing a pre-created libsql client
+  - New (correct): `new PrismaLibSQL({url, authToken})` — passing a config object, Factory creates the client internally
+  - When passing a client object, the Factory tried to create a NEW client from it, reading `config.url` which was `undefined`, causing `URL_INVALID: The URL 'undefined'`
+- **Verified fix**: Tested both approaches in plain Node.js:
+  - Old approach (client): `URL_INVALID: The URL 'undefined' is not in a valid format` ❌
+  - New approach (config): `SUCCESS! Candidate count: 11` ✅
+- **Updated db.ts**:
+  - Changed `new PrismaLibSQL(libsql)` → `new PrismaLibSQL({url: tursoUrl, authToken: tursoToken})`
+  - Removed `createClient` import from `@libsql/client` (Factory handles it)
+  - Used static imports for `@prisma/adapter-libsql` instead of `require()` for Vercel compatibility
+- **Updated next.config.ts**:
+  - Added `serverExternalPackages: ['@prisma/client', '@libsql/client', '@prisma/adapter-libsql']`
+  - Ensures Vercel properly resolves these packages at runtime
+- **Updated prisma/schema.prisma**:
+  - Removed deprecated `previewFeatures = ["driverAdapters"]` (not needed in Prisma v6)
+  - Regenerated Prisma client
+- **Updated health endpoint**:
+  - Added `DB_MODE` check showing "Turso (remote libsql)" vs "Local SQLite"
+- **Untracked .env from git**: Removed `.env` from git tracking (was committed before), added `.env.example`
+- **Pushed to GitHub**: commit 0d0fb04 pushed to main branch
+- **Verified Vercel deployment**: 
+  - Health endpoint: ✅ healthy, "11 candidates found", DB_MODE: "Turso (remote libsql)"
+  - Candidates endpoint: ✅ Returns all 11 candidates with correct data
+
+Stage Summary:
+- **ROOT CAUSE FOUND**: PrismaLibSQL Factory API change — must pass config object, not client
+- All Vercel APIs now working correctly (health, candidates, activity, ligues)
+- 11 candidates loading from Turso on Vercel deployment
+- Code clean, lint passes, deployed to production
+
+## Current Project Status (Updated)
+
+**Project**: "Qui lliga més aquest estiu?" - Competitive summer hookup leaderboard
+**Status**: ✅ FULLY WORKING on Vercel + Turso. All features operational.
+**Deployment**: Vercel (objetciu-estiu.vercel.app) + Turso (libsql://web-naii.aws-eu-west-1.turso.io)
+**Route**: Single page at `/`
+**Participants**: 11 (Ian, Putraskito, Pol, Rui, Clone, Dani, Max, Debig, Baldo, Roki, ElRey)
+**Exempt from leaderboard**: ElRey
+
+## Unresolved Issues / Risks
+
+- **Mobile push notifications**: Desktop works, mobile doesn't (unresolved from previous session)
+- No authentication - anyone can modify counts (by design)
+- Auto-refresh is polling-based (10s interval)
+
+## Priority Recommendations for Next Phase
+
+- Fix mobile push notifications
+- Test PWA install flow on mobile
+- Add image upload improvements (camera capture, compression options)
+- Make exempt status configurable via admin UI
