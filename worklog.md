@@ -416,3 +416,28 @@ Stage Summary:
 - Add push notifications for real-time updates
 - Make exempt status configurable via admin UI
 - Add ligue detail time-based filtering
+---
+Task ID: 3-main
+Agent: Main
+Task: Fix disappeared candidates + Add image upload for ligue proof + Add FEED section
+
+Work Log:
+- Database was reset during troubleshooting, candidates auto-seed on API call
+- Updated Prisma schema: added `photoData` field to Ligue model for base64 image storage
+- Updated `/api/ligues` route: POST/PUT now accept and store photoData
+- Updated `page.tsx` with:
+  - Image upload in ligue form (client-side resize to max 800px, JPEG quality 0.7)
+  - FEED tab in right column with photo gallery grid
+  - Lightbox for full-size photo viewing
+  - Ligue history modal shows photo thumbnails
+- Fixed db.ts: removed @prisma/adapter-libsql import (not installed locally, Turso only needed on Vercel)
+- Installed web-push package (was referenced by push.ts from previous session)
+- Pushed all changes to GitHub (kitusjr2/objetciu-estiu)
+- Vercel should auto-deploy from GitHub push
+
+Stage Summary:
+- Candidates are restored and working
+- Image upload feature added (resize client-side, store as base64 in DB)
+- FEED section added with photo gallery
+- Push notifications infrastructure preserved from previous session
+- All code pushed to GitHub, Vercel will auto-deploy
