@@ -109,7 +109,7 @@ export default function Home() {
   const [ligueHintId, setLigueHintId] = useState<string | null>(null)
   const [hasLastAction, setHasLastAction] = useState(false)
   const [activeTab, setActiveTab] = useState<'grid' | 'list'>('grid')
-  const [showProfileModal, setShowProfileModal] = useState<string | null>(null)
+  const [showProfileModal, setShowProfileModal] = useState<string | null>(null) // kept for backward compat
   const [versusIds, setVersusIds] = useState<[string, string] | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [quote] = useState(() => MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)])
@@ -127,6 +127,10 @@ export default function Home() {
   const [activeSection, setActiveSection] = useState<'stats' | 'feed'>('stats')
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null)
   const [dbError, setDbError] = useState<string | null>(null)
+  const [pendingIncrement, setPendingIncrement] = useState<{ personId: string; personName: string; newCount: number; prevCount: number } | null>(null)
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
+  const [feedFilterId, setFeedFilterId] = useState<string | null>(null)
+  const [ligueFormError, setLigueFormError] = useState('')
   const lastActivityLen = useRef(0)
   const prevRanks = useRef<Record<string, number>>({})
   const toastId = useRef(0)
@@ -188,19 +192,46 @@ export default function Home() {
   const increment = useCallback((id: string) => {
     let nc = 0; let pn = ''; let prev = 0
     setCandidates(p => { const c = p.find(x => x.id === id); if (!c) return p; nc = c.lligatCount + 1; pn = c.name; prev = c.lligatCount; return p.map(x => x.id === id ? { ...x, lligatCount: nc } : x) })
-    fetch(`/api/candidates/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lligatCount: nc }) }).then(() => fetch('/api/activity').then(r => r.json()).then(setActivity))
-    addToast(`${pn} +1! 💪`, 'success'); playDing()
-    // Check for achievement unlock
-    const newAchievement = ACHIEVEMENTS.find(a => a.min === nc)
+    // Set pending increment and open mandatory ligue form
+    setPendingIncrement({ personId: id, personName: pn, newCount: nc, prevCount: prev })
+    setShowLigueForm(id)
+    setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); setLiguePhoto(''); setLiguePhotoPreview(''); setLigueFormError('')
+    playDing()
+  }, [playDing])
+  const confirmIncrement = useCallback(async () => {
+    if (!pendingIncrement) return
+    const { personId, personName, newCount, prevCount } = pendingIncrement
+    // Validate required fields
+    if (!ligueNom.trim() || !ligueEdat.trim() || !ligueUbi.trim() || ligueRating === 0) {
+      setLigueFormError('Tots els camps són obligatoris (excepte la foto)')
+      return
+    }
+    setLigueFormError('')
+    // Save count to API
+    await fetch(`/api/candidates/${personId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lligatCount: newCount }) })
+    const actData = await (await fetch('/api/activity')).json(); if (Array.isArray(actData)) setActivity(actData)
+    // Save ligue details
+    await fetch('/api/ligues', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId, personName, nom: ligueNom, edat: ligueEdat, ubi: ligueUbi, rating: ligueRating, photoData: liguePhoto }) })
+    const ligData = await (await fetch('/api/ligues')).json(); if (Array.isArray(ligData)) setLigues(ligData)
+    addToast(`${personName} +1! 💪`, 'success')
+    // Check achievement
+    const newAchievement = ACHIEVEMENTS.find(a => a.min === newCount)
     if (newAchievement) {
-      addToast(`${pn} ha desbloquejat "${newAchievement.name}" ${newAchievement.emoji}!`, 'warning')
+      addToast(`${personName} ha desbloquejat "${newAchievement.name}" ${newAchievement.emoji}!`, 'warning')
       setShowConfetti(true); setTimeout(() => setShowConfetti(false), 5000)
     }
-    lastActionRef.current = { type: 'increment', personId: id, personName: pn, prevCount: prev }; setHasLastAction(true)
-    setLigueHintId(id)
-    if (ligueHintTimer.current) clearTimeout(ligueHintTimer.current)
-    ligueHintTimer.current = setTimeout(() => setLigueHintId(null), 10000)
-  }, [addToast, playDing])
+    lastActionRef.current = { type: 'increment', personId, personName, prevCount }; setHasLastAction(true)
+    setPendingIncrement(null)
+    setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); setLiguePhoto(''); setLiguePhotoPreview('')
+  }, [pendingIncrement, ligueNom, ligueEdat, ligueUbi, ligueRating, liguePhoto, addToast, playDing])
+  const cancelIncrement = useCallback(() => {
+    if (!pendingIncrement) return
+    const { personId, prevCount } = pendingIncrement
+    setCandidates(p => p.map(c => c.id === personId ? { ...c, lligatCount: prevCount } : c))
+    setPendingIncrement(null)
+    setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); setLiguePhoto(''); setLiguePhotoPreview(''); setLigueFormError('')
+    addToast('Desfés', 'info')
+  }, [pendingIncrement, addToast])
   const decrement = useCallback((id: string) => {
     let nc = 0; let pn = ''; let prev = 0
     setCandidates(p => { const c = p.find(x => x.id === id); if (!c || c.lligatCount <= 0) return p; nc = c.lligatCount - 1; pn = c.name; prev = c.lligatCount; return p.map(x => x.id === id ? { ...x, lligatCount: nc } : x) })
@@ -241,10 +272,13 @@ export default function Home() {
   }, [candidates, addToast])
   const submitLigueDetails = useCallback(async () => {
     if (!showLigueForm) return; const c = candidates.find(x => x.id === showLigueForm); if (!c) return
+    // If there's a pending increment, use confirmIncrement instead
+    if (pendingIncrement) { await confirmIncrement(); return }
     await fetch('/api/ligues', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId: c.id, personName: c.name, nom: ligueNom, edat: ligueEdat, ubi: ligueUbi, rating: ligueRating, photoData: liguePhoto }) })
-    setLigues(await (await fetch('/api/ligues')).json()); addToast('Guardat! 📝', 'success')
-    setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); setLiguePhoto(''); setLiguePhotoPreview('')
-  }, [showLigueForm, candidates, ligueNom, ligueEdat, ligueUbi, ligueRating, liguePhoto, addToast])
+    const ligData = await (await fetch('/api/ligues')).json(); if (Array.isArray(ligData)) setLigues(ligData)
+    addToast('Guardat! 📝', 'success')
+    setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); setLiguePhoto(''); setLiguePhotoPreview(''); setLigueFormError('')
+  }, [showLigueForm, candidates, ligueNom, ligueEdat, ligueUbi, ligueRating, liguePhoto, addToast, pendingIncrement, confirmIncrement])
   const deleteLigue = useCallback(async (id: string) => {
     await fetch(`/api/ligues?id=${id}`, { method: 'DELETE' }); setLigues(await (await fetch('/api/ligues')).json()); addToast('Lligada eliminada 🗑️', 'info'); setDeleteConfirmId(null)
   }, [addToast])
@@ -254,8 +288,8 @@ export default function Home() {
     setLigues(await (await fetch('/api/ligues')).json()); addToast('Editat! ✏️', 'success'); setEditingLigueId(null); setEditLigueNom(''); setEditLigueEdat(''); setEditLigueUbi(''); setEditLigueRating(0)
   }, [editingLigueId, editLigueNom, editLigueEdat, editLigueUbi, editLigueRating, addToast])
   const startLigueEdit = (l: LigueEntry) => { setEditingLigueId(l.id); setEditLigueNom(l.nom); setEditLigueEdat(l.edat); setEditLigueUbi(l.ubi); setEditLigueRating(l.rating) }
-  const skipLigue = useCallback(() => { setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); setLiguePhoto(''); setLiguePhotoPreview('') }, [])
-  const openLigueForm = (id: string) => { setLigueHintId(null); setShowLigueForm(id); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); setLiguePhoto(''); setLiguePhotoPreview('') }
+  const skipLigue = useCallback(() => { if (pendingIncrement) { cancelIncrement(); return }; setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); setLiguePhoto(''); setLiguePhotoPreview(''); setLigueFormError('') }, [pendingIncrement, cancelIncrement])
+  const openLigueForm = (id: string) => { setLigueHintId(null); setShowLigueForm(id); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); setLiguePhoto(''); setLiguePhotoPreview(''); setPendingIncrement(null); setLigueFormError('') }
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -504,7 +538,7 @@ export default function Home() {
                         const achs = ACHIEVEMENTS.filter(a => person.lligatCount >= a.min)
                         return (
                           <div key={person.id} className={`relative group rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.03] hover:-translate-y-1 candidate-card-hover animate-card-entrance ${isExempt?'ring-2 ring-purple-400/60 dark:ring-purple-500/40 pulse-glow-purple':rank===0&&person.lligatCount>0?'ring-2 ring-amber-400 dark:ring-amber-500 shadow-lg shadow-amber-200/40 dark:shadow-amber-500/20 pulse-glow-amber':person.lligatCount>0?'ring-2 ring-green-400/60 dark:ring-green-500/40 shadow-md':'ring-1 ring-gray-200/80 dark:ring-stone-700/80'}`} style={{ animationDelay: `${idx*50}ms` }}>
-                            <div className="aspect-square relative cursor-pointer" onClick={() => setShowProfileModal(person.id)}>
+                            <div className="aspect-square relative cursor-pointer" onClick={() => setSelectedCandidateId(person.id)}>
                               <img src={person.photo} alt={person.name} style={IMG_POS[person.id]?{objectPosition:IMG_POS[person.id]}:undefined} className={`w-full h-full object-cover transition-all duration-500 ${isExempt?'brightness-75 grayscale-[30%]':rank===0&&person.lligatCount>0?'brightness-110 saturate-150':person.lligatCount>0?'brightness-105 saturate-120':'brightness-90'}`} />
                               {isExempt && <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold shadow-lg bg-purple-500/90 text-white backdrop-blur-sm">🏳️‍🌈 EXEMPT</div>}
                               {person.lligatCount > 0 && !isExempt && <div className={`absolute top-1.5 left-1.5 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-lg ${rank===0?'bg-amber-400 text-amber-900':rank===1?'bg-gray-300 text-gray-700':rank===2?'bg-orange-400 text-orange-900':'bg-black/50 text-white'}`}>{rank+1}</div>}
@@ -545,7 +579,7 @@ export default function Home() {
                         const streak = getStreak(person.id)
                         const achs = ACHIEVEMENTS.filter(a => person.lligatCount >= a.min)
                         return (
-                          <div key={person.id} className={`flex items-center gap-3 p-2 rounded-xl transition-all duration-200 hover:bg-orange-50/50 dark:hover:bg-stone-800/30 cursor-pointer ${isExempt?'bg-purple-50/40 dark:bg-purple-900/10':''}`} onClick={() => setShowProfileModal(person.id)}>
+                          <div key={person.id} className={`flex items-center gap-3 p-2 rounded-xl transition-all duration-200 hover:bg-orange-50/50 dark:hover:bg-stone-800/30 cursor-pointer ${isExempt?'bg-purple-50/40 dark:bg-purple-900/10':''}`} onClick={() => setSelectedCandidateId(person.id)}>
                             <div className={`relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ring-2 ${rank===0&&person.lligatCount>0&&!isExempt?'ring-amber-400':'ring-gray-200 dark:ring-stone-700'}`}>
                               <img src={person.photo} alt={person.name} style={IMG_POS[person.id]?{objectPosition:IMG_POS[person.id]}:undefined} className={`w-full h-full object-cover ${isExempt?'grayscale-[30%] opacity-70':''}`} />
                             </div>
@@ -828,40 +862,87 @@ export default function Home() {
                   )}
                   </>
                   ) : (
-                  /* FEED SECTION - Photo Gallery */
+                  /* FEED SECTION - Photo Gallery with details */
                   (() => {
-                    const photoLigues = ligues.filter(l => l.photoData && l.photoData.trim() !== '')
-                    if (photoLigues.length === 0) return (
-                      <div className="text-center py-10">
-                        <div className="relative mx-auto w-20 h-20 mb-3">
-                          <ImageIcon className="w-10 h-10 text-pink-300 dark:text-pink-700 mx-auto absolute inset-0 m-auto" />
-                          <span className="absolute -top-1 -right-2 text-lg animate-float-slow">📸</span>
-                          <span className="absolute -bottom-1 -left-2 text-sm animate-float-medium">🖼️</span>
-                        </div>
-                        <p className="text-sm text-gray-400 italic">Encara no hi ha fotos...</p>
-                        <p className="text-xs text-gray-300 mt-1">Afegeix una foto de prova! 💋</p>
-                      </div>
-                    )
+                    const allPhotoLigues = ligues.filter(l => l.photoData && l.photoData.trim() !== '')
+                    const photoLigues = feedFilterId ? allPhotoLigues.filter(l => l.personId === feedFilterId) : allPhotoLigues
+                    const peopleWithPhotos = [...new Set(allPhotoLigues.map(l => l.personId))]
                     return (
-                      <div className="grid grid-cols-2 gap-2 max-h-[560px] overflow-y-auto custom-scrollbar">
-                        {photoLigues.map(l => {
-                          const person = candidates.find(c => c.id === l.personId)
-                          return (
-                            <div key={l.id} className="rounded-xl overflow-hidden border border-pink-100/50 dark:border-pink-800/30 bg-white/50 dark:bg-stone-800/50 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 cursor-pointer group" onClick={() => setLightboxPhoto(l.photoData)}>
-                              <div className="relative aspect-square overflow-hidden">
-                                <img src={l.photoData} alt={`Foto de ${l.personName}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-                              </div>
-                              <div className="p-1.5 flex items-center gap-1.5">
-                                <div className="w-5 h-5 rounded-full overflow-hidden ring-1 ring-gray-200 dark:ring-stone-700 flex-shrink-0">
-                                  <img src={person?.photo || ''} alt={l.personName} className="w-full h-full object-cover" />
-                                </div>
-                                <span className="text-[10px] font-semibold text-gray-700 dark:text-stone-300 truncate">{l.personName}</span>
-                                <span className="text-[8px] text-gray-400 ml-auto flex-shrink-0">{timeAgo(l.createdAt)}</span>
-                              </div>
+                      <div>
+                        {/* Candidate filter */}
+                        {peopleWithPhotos.length > 1 && (
+                          <div className="flex items-center gap-1.5 mb-3 overflow-x-auto pb-1">
+                            <button onClick={() => setFeedFilterId(null)} className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold transition-all ${!feedFilterId ? 'bg-orange-500 text-white shadow-sm' : 'bg-gray-100 dark:bg-stone-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-stone-700'}`}>Tots</button>
+                            {peopleWithPhotos.map(pid => {
+                              const person = candidates.find(c => c.id === pid)
+                              if (!person) return null
+                              return (
+                                <button key={pid} onClick={() => setFeedFilterId(feedFilterId===pid?null:pid)} className={`flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium transition-all ${feedFilterId===pid ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 ring-1 ring-orange-300 dark:ring-orange-700' : 'bg-gray-100 dark:bg-stone-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-stone-700'}`}>
+                                  <div className="w-4 h-4 rounded-full overflow-hidden ring-1 ring-gray-200 dark:ring-stone-700"><img src={person.photo} alt={person.name} className="w-full h-full object-cover" /></div>
+                                  {person.name}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
+                        {photoLigues.length === 0 ? (
+                          <div className="text-center py-10">
+                            <div className="relative mx-auto w-20 h-20 mb-3">
+                              <ImageIcon className="w-10 h-10 text-pink-300 dark:text-pink-700 mx-auto absolute inset-0 m-auto" />
+                              <span className="absolute -top-1 -right-2 text-lg animate-float-slow">📸</span>
+                              <span className="absolute -bottom-1 -left-2 text-sm animate-float-medium">🖼️</span>
                             </div>
-                          )
-                        })}
+                            <p className="text-sm text-gray-400 italic">Encara no hi ha fotos...</p>
+                            <p className="text-xs text-gray-300 mt-1">Afegeix una foto de prova! 💋</p>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 gap-3 max-h-[560px] overflow-y-auto custom-scrollbar pr-1">
+                            {photoLigues.map(l => {
+                              const person = candidates.find(c => c.id === l.personId)
+                              const dateStr = new Date(l.createdAt).toLocaleDateString('ca-ES', { day: 'numeric', month: 'short' })
+                              const timeStr = new Date(l.createdAt).toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit' })
+                              return (
+                                <div key={l.id} className="rounded-xl overflow-hidden border border-pink-100/50 dark:border-pink-800/30 bg-white/50 dark:bg-stone-800/50 hover:shadow-lg transition-all duration-300 cursor-pointer group" onClick={() => setLightboxPhoto(l.photoData)}>
+                                  <div className="relative aspect-[4/3] overflow-hidden">
+                                    <img src={l.photoData} alt={`Foto de ${l.personName}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                                    {/* Rating badge */}
+                                    {l.rating > 0 && (
+                                      <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-amber-500/90 text-white text-xs font-bold backdrop-blur-sm shadow-lg">
+                                        ⭐ {l.rating}/10
+                                      </div>
+                                    )}
+                                    {/* Bottom overlay info */}
+                                    <div className="absolute bottom-0 left-0 right-0 p-3">
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-7 h-7 rounded-full overflow-hidden ring-2 ring-white/50 flex-shrink-0">
+                                          <img src={person?.photo || ''} alt={l.personName} className="w-full h-full object-cover" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-xs font-bold text-white truncate">{l.personName}</p>
+                                          {l.nom && <p className="text-[10px] text-white/80 truncate">{l.nom}</p>}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  {/* Details below photo */}
+                                  <div className="p-2.5 space-y-1">
+                                    {(l.ubi || l.edat) && (
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        {l.ubi && <span className="text-[10px] text-gray-500 dark:text-stone-400 flex items-center gap-0.5"><MapPin className="w-2.5 h-2.5" />{l.ubi}</span>}
+                                        {l.edat && <span className="text-[10px] text-gray-500 dark:text-stone-400 flex items-center gap-0.5"><Users className="w-2.5 h-2.5" />{l.edat} anys</span>}
+                                      </div>
+                                    )}
+                                    <div className="flex items-center gap-1.5">
+                                      <Calendar className="w-2.5 h-2.5 text-gray-400" />
+                                      <span className="text-[10px] text-gray-400">{dateStr} · {timeStr}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
                       </div>
                     )
                   })()
@@ -938,123 +1019,305 @@ export default function Home() {
           </div>
         )}
 
-        {/* PROFILE MODAL - New feature */}
-        {showProfileModal && (() => {
-          const person = candidates.find(c => c.id === showProfileModal)
+        {/* CANDIDATE PROFILE VIEW - Full page when a candidate is selected */}
+        {selectedCandidateId && (() => {
+          const person = candidates.find(c => c.id === selectedCandidateId)
           if (!person) return null
           const pLigues = ligues.filter(l => l.personId === person.id)
-          const pActivity = activity.filter(a => a.personId === person.id).slice(0, 10)
+          const pActivity = activity.filter(a => a.personId === person.id).slice(0, 15)
           const streak = getStreak(person.id)
           const avgR = getAvgRating(person.id)
           const achs = ACHIEVEMENTS.filter(a => person.lligatCount >= a.min)
           const rank = sorted.findIndex(s => s.id === person.id)
           const isExempt = EXEMPT_IDS.has(person.id)
+          const photoLigues = pLigues.filter(l => l.photoData && l.photoData.trim() !== '')
           return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xl" onClick={() => { setShowProfileModal(null); setDeleteConfirmId(null) }}>
-              <div className="w-full max-w-md max-h-[85vh] overflow-y-auto animate-modal-slide-up" onClick={e => e.stopPropagation()}>
-                <Card className="bg-white/80 dark:bg-stone-900/80 shadow-2xl border border-white/30 dark:border-stone-700/50 backdrop-blur-2xl overflow-hidden">
-                  <div className="h-2 bg-gradient-to-r from-orange-400 via-rose-400 to-pink-500" />
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className={`relative w-14 h-14 rounded-full overflow-hidden ring-2 ${rank===0&&!isExempt?'ring-amber-400':'ring-gray-200 dark:ring-stone-700'}`}>
-                          <img src={person.photo} alt={person.name} style={IMG_POS[person.id]?{objectPosition:IMG_POS[person.id]}:undefined} className="w-full h-full object-cover" />
-                        </div>
-                        <div>
-                          <h3 className="font-bold text-gray-800 dark:text-stone-200 text-lg">{person.name} {rank===0&&!isExempt&&person.lligatCount>0&&'👑'}</h3>
-                          <p className="text-xs text-gray-400">{person.nickname}</p>
-                          {isExempt && <Badge variant="secondary" className="text-[9px] bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 mt-0.5">🏳️‍🌈 EXEMPT</Badge>}
-                        </div>
-                      </div>
-                      <button onClick={() => setShowProfileModal(null)} aria-label="Tancar perfil" className="text-gray-400 hover:text-gray-600 transition-colors"><X className="w-5 h-5" /></button>
+            <div className="fixed inset-0 z-40 flex flex-col bg-white dark:bg-stone-950 animate-in slide-in-from-right duration-300 overflow-hidden">
+              {/* Hero section */}
+              <div className="relative h-48 sm:h-56 overflow-hidden flex-shrink-0">
+                <img src={person.photo} alt={person.name} style={IMG_POS[person.id]?{objectPosition:IMG_POS[person.id]}:undefined} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                {/* Back button */}
+                <button onClick={() => { setSelectedCandidateId(null); setDeleteConfirmId(null); setEditingLigueId(null) }} className="absolute top-4 left-4 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md text-white text-sm font-medium hover:bg-black/60 transition-all">
+                  <ArrowUp className="w-4 h-4 rotate-[-90deg]" /> Tornar
+                </button>
+                {/* Name overlay */}
+                <div className="absolute bottom-4 left-4 right-4">
+                  <div className="flex items-end gap-3">
+                    <div className={`relative w-16 h-16 rounded-full overflow-hidden ring-3 ${rank===0&&!isExempt?'ring-amber-400':'ring-white/50'} shadow-xl flex-shrink-0`}>
+                      <img src={person.photo} alt={person.name} style={IMG_POS[person.id]?{objectPosition:IMG_POS[person.id]}:undefined} className="w-full h-full object-cover" />
                     </div>
-                    {/* Stats grid */}
-                    <div className="grid grid-cols-3 gap-2 mb-4">
-                      <div className="bg-orange-50 dark:bg-orange-900/10 rounded-xl p-2.5 text-center border border-orange-100/50 dark:border-orange-800/30">
-                        <p className="text-xl font-extrabold text-orange-600 dark:text-orange-400">{person.lligatCount}</p>
-                        <p className="text-[9px] text-gray-500">Lligades</p>
-                      </div>
-                      <div className="bg-amber-50 dark:bg-amber-900/10 rounded-xl p-2.5 text-center border border-amber-100/50 dark:border-amber-800/30">
-                        <p className="text-xl font-extrabold text-amber-600 dark:text-amber-400">{avgR>0?avgR.toFixed(1):'—'}</p>
-                        <p className="text-[9px] text-gray-500">Valoració</p>
-                      </div>
-                      <div className="bg-rose-50 dark:bg-rose-900/10 rounded-xl p-2.5 text-center border border-rose-100/50 dark:border-rose-800/30">
-                        <p className="text-xl font-extrabold text-rose-600 dark:text-rose-400">{streak>0?streak:'—'}</p>
-                        <p className="text-[9px] text-gray-500">Ratxa 🔥</p>
-                      </div>
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-xl font-extrabold text-white flex items-center gap-1.5">
+                        {person.name}
+                        {rank===0&&!isExempt&&person.lligatCount>0&&<Crown className="w-5 h-5 text-amber-400" />}
+                      </h2>
+                      <p className="text-sm text-white/70">@{person.nickname}</p>
+                      {isExempt && <Badge variant="secondary" className="text-[10px] bg-purple-500/50 text-white mt-0.5">🏳️‍🌈 EXEMPT</Badge>}
                     </div>
-                    {/* Achievements + Next Achievement Progress */}
-                    <div className="mb-4">
-                      <p className="text-[11px] font-bold text-gray-500 mb-1.5">🏅 Fites</p>
-                      {achs.length > 0 && (
-                        <div className="flex items-center gap-1 flex-wrap mb-2">{achs.map(a => <Tooltip key={a.id}><TooltipTrigger asChild><span className="px-2 py-1 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/10 dark:to-amber-900/10 rounded-full text-xs border border-orange-100/30 dark:border-orange-800/20">{a.emoji} {a.name}</span></TooltipTrigger><TooltipContent side="bottom" className="text-xs">{a.desc}</TooltipContent></Tooltip>)}</div>
-                      )}
-                      {(() => {
-                        const nextAch = ACHIEVEMENTS.find(a => a.min > person.lligatCount)
-                        if (!nextAch) return null
-                        const prevMin = ACHIEVEMENTS.filter(a => a.min <= person.lligatCount).pop()?.min || 0
-                        const progress = nextAch.min - prevMin > 0 ? ((person.lligatCount - prevMin) / (nextAch.min - prevMin)) * 100 : 0
-                        return (
-                          <div className="p-2 rounded-lg bg-gradient-to-r from-amber-50/50 to-orange-50/50 dark:from-amber-900/10 dark:to-orange-900/10 border border-amber-100/30 dark:border-amber-800/20">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-[10px] text-gray-500">Següent: {nextAch.emoji} {nextAch.name}</span>
-                              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">{person.lligatCount}/{nextAch.min}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto custom-scrollbar px-4 py-5 max-w-2xl mx-auto w-full">
+                {/* Stats */}
+                <div className="grid grid-cols-4 gap-2 mb-5">
+                  <div className="bg-orange-50 dark:bg-orange-900/10 rounded-xl p-3 text-center border border-orange-100/50 dark:border-orange-800/30">
+                    <p className="text-2xl font-extrabold text-orange-600 dark:text-orange-400">{person.lligatCount}</p>
+                    <p className="text-[10px] text-gray-500">Lligades</p>
+                  </div>
+                  <div className="bg-amber-50 dark:bg-amber-900/10 rounded-xl p-3 text-center border border-amber-100/50 dark:border-amber-800/30">
+                    <p className="text-2xl font-extrabold text-amber-600 dark:text-amber-400">{avgR>0?avgR.toFixed(1):'—'}</p>
+                    <p className="text-[10px] text-gray-500">Valoració</p>
+                  </div>
+                  <div className="bg-rose-50 dark:bg-rose-900/10 rounded-xl p-3 text-center border border-rose-100/50 dark:border-rose-800/30">
+                    <p className="text-2xl font-extrabold text-rose-600 dark:text-rose-400">{streak>0?streak:'—'}</p>
+                    <p className="text-[10px] text-gray-500">Ratxa 🔥</p>
+                  </div>
+                  <div className="bg-purple-50 dark:bg-purple-900/10 rounded-xl p-3 text-center border border-purple-100/50 dark:border-purple-800/30">
+                    <p className="text-2xl font-extrabold text-purple-600 dark:text-purple-400">#{rank+1}</p>
+                    <p className="text-[10px] text-gray-500">Posició</p>
+                  </div>
+                </div>
+
+                {/* Achievements */}
+                <div className="mb-5">
+                  <h3 className="text-sm font-bold text-gray-700 dark:text-stone-300 mb-2 flex items-center gap-1.5"><Award className="w-4 h-4 text-amber-500" /> Fites desbloquejades</h3>
+                  {achs.length > 0 ? (
+                    <div className="flex items-center gap-1.5 flex-wrap">{achs.map(a => <Tooltip key={a.id}><TooltipTrigger asChild><span className="px-3 py-1.5 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-900/10 dark:to-amber-900/10 rounded-full text-xs border border-orange-100/30 dark:border-orange-800/20 font-medium">{a.emoji} {a.name}</span></TooltipTrigger><TooltipContent side="bottom" className="text-xs">{a.desc}</TooltipContent></Tooltip>)}</div>
+                  ) : (
+                    <p className="text-xs text-gray-400 italic">Encara cap fita... Suma lligades! 💪</p>
+                  )}
+                  {(() => {
+                    const nextAch = ACHIEVEMENTS.find(a => a.min > person.lligatCount)
+                    if (!nextAch) return null
+                    const prevMin = ACHIEVEMENTS.filter(a => a.min <= person.lligatCount).pop()?.min || 0
+                    const progress = nextAch.min - prevMin > 0 ? ((person.lligatCount - prevMin) / (nextAch.min - prevMin)) * 100 : 0
+                    return (
+                      <div className="mt-2 p-2.5 rounded-lg bg-gradient-to-r from-amber-50/50 to-orange-50/50 dark:from-amber-900/10 dark:to-orange-900/10 border border-amber-100/30 dark:border-amber-800/20">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs text-gray-500">Següent: {nextAch.emoji} {nextAch.name}</span>
+                          <span className="text-xs font-bold text-amber-600 dark:text-amber-400">{person.lligatCount}/{nextAch.min}</span>
+                        </div>
+                        <div className="h-2.5 bg-gray-200/60 dark:bg-stone-700/40 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-500" style={{ width: `${progress}%` }} />
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </div>
+
+                {/* Photo gallery */}
+                {photoLigues.length > 0 && (
+                  <div className="mb-5">
+                    <h3 className="text-sm font-bold text-gray-700 dark:text-stone-300 mb-2 flex items-center gap-1.5"><Camera className="w-4 h-4 text-pink-500" /> Galeria de fotos ({photoLigues.length})</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {photoLigues.map(l => (
+                        <div key={l.id} className="rounded-xl overflow-hidden border border-pink-100/50 dark:border-pink-800/30 bg-white/50 dark:bg-stone-800/50 cursor-pointer group" onClick={() => setLightboxPhoto(l.photoData)}>
+                          <div className="relative aspect-[4/3] overflow-hidden">
+                            <img src={l.photoData} alt={`Foto`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                            {l.rating > 0 && <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full bg-amber-500/90 text-white text-[10px] font-bold">⭐ {l.rating}</div>}
+                            <div className="absolute bottom-1.5 left-1.5 right-1.5">
+                              {l.nom && <p className="text-[10px] text-white font-medium truncate">{l.nom}</p>}
+                              {l.ubi && <p className="text-[9px] text-white/70 flex items-center gap-0.5"><MapPin className="w-2 h-2" />{l.ubi}</p>}
                             </div>
-                            <div className="h-2 bg-gray-200/60 dark:bg-stone-700/40 rounded-full overflow-hidden">
-                              <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-500" style={{ width: `${progress}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* All ligues details */}
+                {pLigues.length > 0 && (
+                  <div className="mb-5">
+                    <h3 className="text-sm font-bold text-gray-700 dark:text-stone-300 mb-2 flex items-center gap-1.5"><Heart className="w-4 h-4 text-rose-500" /> Totes les lligades ({pLigues.length})</h3>
+                    <div className="space-y-2">
+                      {pLigues.map(l => (
+                        editingLigueId===l.id ? (
+                          <div key={l.id} className="p-3 rounded-xl bg-orange-100/50 dark:bg-orange-900/20 border border-orange-200/50 dark:border-orange-800/40 text-xs space-y-2">
+                            <div className="flex gap-1.5"><Input value={editLigueNom} onChange={e => setEditLigueNom(e.target.value)} placeholder="Nom" className="h-8 text-xs px-2" /><Input value={editLigueEdat} onChange={e => setEditLigueEdat(e.target.value)} placeholder="Edat" className="h-8 text-xs px-2 w-16" /><Input value={editLigueUbi} onChange={e => setEditLigueUbi(e.target.value)} placeholder="Ubi" className="h-8 text-xs px-2 flex-1" /></div>
+                            <div className="flex items-center gap-1"><div className="flex gap-0.5">{[1,2,3,4,5,6,7,8,9,10].map(v=><button key={v} onClick={()=>setEditLigueRating(v===editLigueRating?0:v)} className={`w-6 h-6 rounded text-[9px] font-bold ${v<=editLigueRating?'bg-amber-400 text-white':'bg-gray-100 dark:bg-stone-700 text-gray-400'}`}>{v}</button>)}</div><div className="ml-auto flex gap-1"><Button size="sm" onClick={saveLigueEdit} className="h-7 text-[10px] px-2 bg-green-500 hover:bg-green-600 text-white">✓</Button><Button size="sm" variant="ghost" onClick={()=>setEditingLigueId(null)} className="h-7 text-[10px] px-2">✕</Button></div></div>
+                          </div>
+                        ) : (
+                          <div key={l.id} className="p-3 rounded-xl bg-gradient-to-r from-orange-50/50 to-rose-50/50 dark:from-orange-900/10 dark:to-rose-900/10 border border-orange-100/50 dark:border-orange-800/30">
+                            <div className="flex items-start gap-3">
+                              {l.photoData && l.photoData.trim() !== '' && (
+                                <img src={l.photoData} alt="Foto" className="w-14 h-14 object-cover rounded-lg border border-pink-200 dark:border-pink-800/50 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0" onClick={() => setLightboxPhoto(l.photoData)} />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {l.nom && <span className="text-sm text-gray-700 dark:text-stone-300 font-semibold">{l.nom}</span>}
+                                  {l.edat && <span className="text-xs text-gray-400">{l.edat} anys</span>}
+                                </div>
+                                <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                                  {l.ubi && <span className="text-xs text-gray-400 flex items-center gap-0.5"><MapPin className="w-3 h-3" />{l.ubi}</span>}
+                                  {l.rating > 0 && <span className="text-xs text-amber-500 font-bold">{l.rating}/10 ⭐</span>}
+                                </div>
+                                <p className="text-[10px] text-gray-400 mt-1 flex items-center gap-0.5"><Calendar className="w-2.5 h-2.5" /> {new Date(l.createdAt).toLocaleDateString('ca-ES', { day: 'numeric', month: 'short' })} · {new Date(l.createdAt).toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit' })}</p>
+                              </div>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <button onClick={() => startLigueEdit(l)} aria-label="Editar" className="text-gray-300 hover:text-orange-500 transition-colors p-1"><Pencil className="w-3.5 h-3.5" /></button>
+                                {deleteConfirmId===l.id ? (
+                                  <div className="flex items-center gap-1"><button onClick={() => deleteLigue(l.id)} className="px-1.5 py-0.5 rounded bg-red-500 text-white text-[9px] font-bold hover:bg-red-600">Sí</button><button onClick={() => setDeleteConfirmId(null)} className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-stone-700 text-[9px] font-bold">No</button></div>
+                                ) : (
+                                  <button onClick={() => setDeleteConfirmId(l.id)} aria-label="Eliminar" className="text-gray-300 hover:text-red-500 transition-colors p-1"><Trash2 className="w-3.5 h-3.5" /></button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         )
-                      })()}
+                      ))}
                     </div>
-                    {/* Activity */}
-                    {pActivity.length > 0 && (
-                      <div className="mb-4">
-                        <p className="text-[11px] font-bold text-gray-500 mb-1.5">📋 Activitat recent</p>
-                        <div className="space-y-1 max-h-28 overflow-y-auto custom-scrollbar">{pActivity.map(e => (
-                          <div key={e.id} className={`flex items-center gap-2 text-[10px] py-0.5 px-1.5 rounded ${e.action==='increment'?'text-green-600 dark:text-green-400':'text-red-500'}`}>
-                            {e.action==='increment'?<ArrowUp className="w-2.5 h-2.5"/>:<ArrowDown className="w-2.5 h-2.5"/>}
-                            <span>{e.action==='increment'?'+1':'-1'}</span><span className="text-gray-400">→ {e.value}</span><span className="ml-auto text-gray-400">{timeAgo(e.createdAt)}</span>
-                          </div>
-                        ))}</div>
+                  </div>
+                )}
+
+                {/* Activity */}
+                {pActivity.length > 0 && (
+                  <div className="mb-5">
+                    <h3 className="text-sm font-bold text-gray-700 dark:text-stone-300 mb-2 flex items-center gap-1.5"><Activity className="w-4 h-4 text-green-500" /> Activitat recent</h3>
+                    <div className="space-y-1">{pActivity.map(e => (
+                      <div key={e.id} className={`flex items-center gap-2 text-xs py-1 px-2 rounded-lg ${e.action==='increment'?'bg-green-50/60 dark:bg-green-900/15 text-green-700 dark:text-green-400':'bg-red-50/60 dark:bg-red-900/15 text-red-600 dark:text-red-400'}`}>
+                        {e.action==='increment'?<ArrowUp className="w-3 h-3"/>:<ArrowDown className="w-3 h-3"/>}
+                        <span className="font-medium">{e.action==='increment'?'+1':'-1'}</span>
+                        <span className="text-gray-400">→ {e.value}</span>
+                        <span className="ml-auto text-[10px] text-gray-400">{timeAgo(e.createdAt)}</span>
+                      </div>
+                    ))}</div>
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div className="flex gap-2 mt-4 pb-6">
+                  <Button onClick={() => increment(person.id)} className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold gap-1.5 h-11">+1 Lligada 💪</Button>
+                  <Button variant="outline" onClick={() => { setSelectedCandidateId(null); openLigueForm(person.id) }} className="gap-1.5 h-11">💋 Detalls</Button>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* LIGUE FORM MODAL - Mandatory on increment */}
+        {showLigueForm && (() => {
+          const person = candidates.find(c => c.id === showLigueForm)
+          if (!person) return null
+          const isMandatory = !!pendingIncrement
+          const canSave = isMandatory ? (ligueNom.trim() !== '' && ligueEdat.trim() !== '' && ligueUbi.trim() !== '' && ligueRating > 0) : true
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xl">
+              <div className="w-full max-w-md max-h-[90vh] overflow-y-auto animate-in zoom-in-95 slide-in-from-bottom-4 duration-300" onClick={e => e.stopPropagation()}>
+                <Card className="bg-white/90 dark:bg-stone-900/90 shadow-2xl border border-white/30 dark:border-stone-700/50 backdrop-blur-2xl overflow-hidden">
+                  <div className="h-2 bg-gradient-to-r from-orange-400 via-rose-400 to-pink-500" />
+                  <CardContent className="p-6">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-5">
+                      <div className="flex items-center gap-3">
+                        <div className="relative w-12 h-12 rounded-full overflow-hidden ring-2 ring-orange-400 shadow-lg">
+                          <img src={person.photo} alt={person.name} style={IMG_POS[person.id]?{objectPosition:IMG_POS[person.id]}:undefined} className="w-full h-full object-cover" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-gray-800 dark:text-stone-200 text-base">{isMandatory ? 'Nova lligada! 💋' : 'Detalls 💋'}</h3>
+                          <p className="text-xs text-gray-500">{person.name} · {person.lligatCount} {person.lligatCount === 1 ? 'lligada' : 'lligades'}</p>
+                        </div>
+                      </div>
+                      {!isMandatory && (
+                        <button onClick={skipLigue} aria-label="Tancar" className="text-gray-400 hover:text-gray-600 dark:hover:text-stone-300 transition-colors"><X className="w-5 h-5" /></button>
+                      )}
+                    </div>
+
+                    {isMandatory && (
+                      <div className="mb-4 p-3 rounded-xl bg-gradient-to-r from-orange-50 to-rose-50 dark:from-orange-900/20 dark:to-rose-900/20 border border-orange-200/50 dark:border-orange-800/30">
+                        <p className="text-xs text-orange-700 dark:text-orange-300 font-medium">⚠️ Omple tots els camps per guardar la lligada. La foto és opcional.</p>
                       </div>
                     )}
-                    {/* Ligues */}
-                    {pLigues.length > 0 && (
+
+                    {/* Error message */}
+                    {ligueFormError && (
+                      <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200/50 dark:border-red-800/30 animate-in shake duration-300">
+                        <p className="text-xs text-red-600 dark:text-red-400 font-medium">{ligueFormError}</p>
+                      </div>
+                    )}
+
+                    <div className="space-y-4">
+                      {/* Nom */}
                       <div>
-                        <p className="text-[11px] font-bold text-gray-500 mb-1.5">💋 Detalls ({pLigues.length})</p>
-                        <div className="space-y-1.5 max-h-40 overflow-y-auto custom-scrollbar">{pLigues.map(l => (
-                          editingLigueId===l.id ? (
-                            <div key={l.id} className="p-2 rounded-lg bg-orange-100/50 dark:bg-orange-900/20 border border-orange-200/50 dark:border-orange-800/40 text-[10px] space-y-1">
-                              <div className="flex gap-1"><Input value={editLigueNom} onChange={e => setEditLigueNom(e.target.value)} placeholder="Nom" className="h-6 text-[10px] px-1.5" /><Input value={editLigueEdat} onChange={e => setEditLigueEdat(e.target.value)} placeholder="Edat" className="h-6 text-[10px] px-1.5 w-14" /><Input value={editLigueUbi} onChange={e => setEditLigueUbi(e.target.value)} placeholder="Ubi" className="h-6 text-[10px] px-1.5 flex-1" /></div>
-                              <div className="flex items-center gap-1"><div className="flex gap-0.5">{[1,2,3,4,5,6,7,8,9,10].map(v=><button key={v} onClick={()=>setEditLigueRating(v===editLigueRating?0:v)} className={`w-5 h-5 rounded text-[8px] font-bold ${v<=editLigueRating?'bg-amber-400 text-white':'bg-gray-100 dark:bg-stone-700 text-gray-400'}`}>{v}</button>)}</div><div className="ml-auto flex gap-1"><Button size="sm" onClick={saveLigueEdit} className="h-6 text-[9px] px-2 bg-green-500 hover:bg-green-600 text-white">✓</Button><Button size="sm" variant="ghost" onClick={()=>setEditingLigueId(null)} className="h-6 text-[9px] px-2">✕</Button></div></div>
-                            </div>
-                          ) : (
-                          <div key={l.id} className="p-2 rounded-lg bg-orange-50/50 dark:bg-orange-900/10 border border-orange-100/30 dark:border-orange-800/20 text-[10px]">
-                            <div className="flex items-center gap-2">
-                              {l.photoData && l.photoData.trim() !== '' && (
-                                <img src={l.photoData} alt={`Foto`} className="w-8 h-8 object-cover rounded-lg border border-pink-200 dark:border-pink-800/50 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0" onClick={() => setLightboxPhoto(l.photoData)} />
-                              )}
-                              {l.nom && <span className="text-gray-700 dark:text-stone-300 font-medium">{l.nom}</span>}
-                              {l.edat && <span className="text-gray-400">{l.edat} anys</span>}
-                              {l.ubi && <span className="text-gray-400 flex items-center gap-0.5"><MapPin className="w-2.5 h-2.5" />{l.ubi}</span>}
-                              {l.rating > 0 && <span className="text-amber-500 font-bold">{l.rating}/10 ⭐</span>}
-                              <button onClick={() => startLigueEdit(l)} aria-label="Editar lligada" className="text-gray-300 hover:text-orange-500 transition-colors ml-auto"><Pencil className="w-3 h-3" /></button>
-                              {deleteConfirmId===l.id ? (
-                                <div className="flex items-center gap-1"><button onClick={() => deleteLigue(l.id)} className="px-1.5 py-0.5 rounded bg-red-500 text-white text-[9px] font-bold hover:bg-red-600">Sí</button><button onClick={() => setDeleteConfirmId(null)} className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-stone-700 text-gray-600 dark:text-gray-300 text-[9px] font-bold">No</button></div>
-                              ) : (
-                                <button onClick={() => setDeleteConfirmId(l.id)} aria-label="Eliminar lligada" className="text-gray-300 hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-                              )}
-                            </div>
-                            <p className="text-[9px] text-gray-400 mt-0.5">{timeAgo(l.createdAt)}</p>
-                          </div>)
-                        ))}</div>
+                        <label className="text-sm font-semibold text-gray-700 dark:text-stone-300 flex items-center gap-1.5 mb-1.5">
+                          <Heart className="w-4 h-4 text-rose-400" /> Nom {isMandatory && <span className="text-red-400">*</span>}
+                        </label>
+                        <Input value={ligueNom} onChange={e => { setLigueNom(e.target.value); setLigueFormError('') }} placeholder="Com es diu?" className={`h-11 text-sm ${isMandatory && !ligueNom.trim() && ligueFormError ? 'border-red-300 dark:border-red-700 focus:border-red-500' : ''}`} />
                       </div>
-                    )}
-                    {/* Quick actions */}
-                    <div className="flex gap-2 mt-4 pt-3 border-t border-orange-100/50 dark:border-stone-800/50">
-                      <Button onClick={() => { increment(person.id); setShowProfileModal(null) }} className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold gap-1">+1 Lligada 💪</Button>
-                      <Button variant="outline" onClick={() => { setShowProfileModal(null); openLigueForm(person.id) }} className="gap-1">💋 Detalls</Button>
+                      {/* Edat */}
+                      <div>
+                        <label className="text-sm font-semibold text-gray-700 dark:text-stone-300 flex items-center gap-1.5 mb-1.5">
+                          <Users className="w-4 h-4 text-amber-400" /> Edat {isMandatory && <span className="text-red-400">*</span>}
+                        </label>
+                        <Input value={ligueEdat} onChange={e => { setLigueEdat(e.target.value); setLigueFormError('') }} placeholder="Quants anys?" className={`h-11 text-sm ${isMandatory && !ligueEdat.trim() && ligueFormError ? 'border-red-300 dark:border-red-700 focus:border-red-500' : ''}`} />
+                      </div>
+                      {/* Ubicació */}
+                      <div>
+                        <label className="text-sm font-semibold text-gray-700 dark:text-stone-300 flex items-center gap-1.5 mb-1.5">
+                          <MapPin className="w-4 h-4 text-cyan-400" /> Ubicació {isMandatory && <span className="text-red-400">*</span>}
+                        </label>
+                        <Input value={ligueUbi} onChange={e => { setLigueUbi(e.target.value); setLigueFormError('') }} placeholder="On ha estat?" className={`h-11 text-sm ${isMandatory && !ligueUbi.trim() && ligueFormError ? 'border-red-300 dark:border-red-700 focus:border-red-500' : ''}`} />
+                      </div>
+                      {/* Valoració */}
+                      <div>
+                        <label className="text-sm font-semibold text-gray-700 dark:text-stone-300 flex items-center gap-1.5 mb-2">
+                          <Star className="w-4 h-4 text-amber-400" /> Valoració {isMandatory && <span className="text-red-400">*</span>}
+                        </label>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {Array.from({ length: 10 }, (_, i) => i+1).map(v => (
+                            <button key={v} onClick={() => { setLigueRating(v===ligueRating?0:v); setLigueFormError('') }} aria-label={`Valoració ${v}`} className={`w-9 h-9 rounded-lg text-sm font-bold transition-all rating-btn-hover ${v<=ligueRating?'bg-gradient-to-b from-amber-400 to-orange-500 text-white shadow-md scale-105':'bg-gray-100 dark:bg-stone-800 text-gray-400 hover:bg-gray-200 dark:hover:bg-stone-700'}`}>{v}</button>
+                          ))}
+                        </div>
+                        {ligueRating > 0 && <p className="text-xs text-amber-500 mt-1.5 font-medium">{ligueRating}/10 {ligueRating>=8?'🔥':ligueRating>=6?'👍':ligueRating>=4?'😐':'💀'}</p>}
+                      </div>
+                      {/* Photo upload */}
+                      <div>
+                        <label className="text-sm font-semibold text-gray-700 dark:text-stone-300 flex items-center gap-1.5 mb-2">
+                          <Camera className="w-4 h-4 text-pink-400" /> Foto prova 📸 <span className="text-xs font-normal text-gray-400">(opcional)</span>
+                        </label>
+                        {liguePhotoPreview ? (
+                          <div className="relative inline-block">
+                            <img src={liguePhotoPreview} alt="Vista prèvia" className="w-28 h-28 object-cover rounded-xl border-2 border-pink-200 dark:border-pink-800 shadow-md" />
+                            <button onClick={() => { setLiguePhoto(''); setLiguePhotoPreview('') }} aria-label="Treure foto" className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md hover:bg-red-600 transition-colors"><X className="w-3 h-3" /></button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <label className="flex items-center justify-center gap-2 flex-1 h-14 rounded-xl border-2 border-dashed border-pink-200 dark:border-pink-800/50 bg-pink-50/50 dark:bg-pink-900/10 cursor-pointer hover:bg-pink-100/50 dark:hover:bg-pink-900/20 transition-all">
+                              <Camera className="w-4 h-4 text-pink-400" />
+                              <span className="text-sm text-pink-500 font-medium">Pujar foto</span>
+                              <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+                            </label>
+                            {isMandatory && (
+                              <Button variant="outline" size="sm" onClick={() => { /* Allow saving without photo */ }} className="text-xs h-14 border-pink-200 dark:border-pink-800 text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/20">
+                                <span className="text-center leading-tight">Afegir<br/>després</span>
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex gap-2 mt-5">
+                      {isMandatory ? (
+                        <>
+                          <Button onClick={cancelIncrement} variant="outline" className="flex-1 border-red-200 dark:border-red-800 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 gap-1">
+                            <Undo2 className="w-4 h-4" /> Desfés
+                          </Button>
+                          <Button onClick={confirmIncrement} disabled={!canSave} className={`flex-1 font-bold gap-1 ${canSave ? 'bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white' : 'bg-gray-200 dark:bg-stone-800 text-gray-400 dark:text-stone-500 cursor-not-allowed'}`}>
+                            Guardar 💾
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button onClick={submitLigueDetails} className="flex-1 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-bold gap-1">Guardar 💾</Button>
+                          <Button variant="ghost" onClick={skipLigue}>Tancar</Button>
+                        </>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -1062,48 +1325,6 @@ export default function Home() {
             </div>
           )
         })()}
-
-        {/* LIGUE FORM MODAL */}
-        {showLigueForm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xl" onClick={skipLigue}>
-            <div className="w-full max-w-md animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-              <Card className="bg-white/80 dark:bg-stone-900/80 shadow-2xl border border-white/30 dark:border-stone-700/50 backdrop-blur-2xl overflow-hidden">
-                <div className="h-2 bg-gradient-to-r from-orange-400 via-rose-400 to-pink-500" />
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2"><div className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-orange-400"><img src={candidates.find(c => c.id===showLigueForm)?.photo||''} alt="" className="w-full h-full object-cover" /></div><div><h3 className="font-bold text-gray-800 dark:text-stone-200 text-sm">Detalls 💋</h3><p className="text-[10px] text-gray-500">{candidates.find(c => c.id===showLigueForm)?.name}</p></div></div>
-                    <button onClick={skipLigue} aria-label="Tancar" className="text-gray-400 hover:text-gray-600 transition-colors"><X className="w-5 h-5" /></button>
-                  </div>
-                  <div className="space-y-3">
-                    <div><label className="text-xs font-semibold text-gray-600 dark:text-stone-400 flex items-center gap-1.5 mb-1"><Heart className="w-3 h-3 text-rose-400" /> Nom</label><Input value={ligueNom} onChange={e => setLigueNom(e.target.value)} placeholder="Nom (opcional)" className="h-9 text-sm" /></div>
-                    <div><label className="text-xs font-semibold text-gray-600 dark:text-stone-400 flex items-center gap-1.5 mb-1"><Users className="w-3 h-3 text-amber-400" /> Edat</label><Input value={ligueEdat} onChange={e => setLigueEdat(e.target.value)} placeholder="Edat (opcional)" className="h-9 text-sm" /></div>
-                    <div><label className="text-xs font-semibold text-gray-600 dark:text-stone-400 flex items-center gap-1.5 mb-1"><MapPin className="w-3 h-3 text-cyan-400" /> Ubicació</label><Input value={ligueUbi} onChange={e => setLigueUbi(e.target.value)} placeholder="On? (opcional)" className="h-9 text-sm" /></div>
-                    <div><label className="text-xs font-semibold text-gray-600 dark:text-stone-400 flex items-center gap-1.5 mb-2"><Star className="w-3 h-3 text-amber-400" /> Valoració</label>
-                      <div className="flex items-center gap-1 flex-wrap">{Array.from({ length: 10 }, (_, i) => i+1).map(v => (<button key={v} onClick={() => setLigueRating(v===ligueRating?0:v)} aria-label={`Valoració ${v}`} className={`w-8 h-8 rounded-lg text-xs font-bold transition-all rating-btn-hover ${v<=ligueRating?'bg-gradient-to-b from-amber-400 to-orange-500 text-white shadow-md':'bg-gray-100 dark:bg-stone-800 text-gray-400 hover:bg-gray-200 dark:hover:bg-stone-700'}`}>{v}</button>))}</div>
-                    </div>
-                    {/* Photo upload */}
-                    <div>
-                      <label className="text-xs font-semibold text-gray-600 dark:text-stone-400 flex items-center gap-1.5 mb-2"><Camera className="w-3 h-3 text-pink-400" /> Foto prova 📸</label>
-                      {liguePhotoPreview ? (
-                        <div className="relative inline-block">
-                          <img src={liguePhotoPreview} alt="Vista prèvia" className="w-24 h-24 object-cover rounded-xl border-2 border-pink-200 dark:border-pink-800 shadow-md" />
-                          <button onClick={() => { setLiguePhoto(''); setLiguePhotoPreview('') }} aria-label="Treure foto" className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] shadow-md hover:bg-red-600 transition-colors"><X className="w-3 h-3" /></button>
-                        </div>
-                      ) : (
-                        <label className="flex items-center justify-center gap-2 w-full h-16 rounded-xl border-2 border-dashed border-pink-200 dark:border-pink-800/50 bg-pink-50/50 dark:bg-pink-900/10 cursor-pointer hover:bg-pink-100/50 dark:hover:bg-pink-900/20 transition-all">
-                          <Camera className="w-4 h-4 text-pink-400" />
-                          <span className="text-xs text-pink-500 font-medium">Pujar foto</span>
-                          <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
-                        </label>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-2 mt-4"><Button onClick={submitLigueDetails} className="flex-1 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-bold">Guardar 💾</Button><Button variant="ghost" onClick={skipLigue}>Saltar</Button></div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        )}
 
         {/* LIGUE HISTORY MODAL */}
         {showLigueHistory && (
