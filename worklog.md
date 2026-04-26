@@ -441,3 +441,58 @@ Stage Summary:
 - FEED section added with photo gallery
 - Push notifications infrastructure preserved from previous session
 - All code pushed to GitHub, Vercel will auto-deploy
+
+---
+Task ID: 17
+Agent: Main Agent
+Task: Fix Vercel deployment error (URL_INVALID: The URL 'undefined') - candidates disappeared, photo features not working
+
+Work Log:
+- **Diagnosed**: Vercel build error `Error [LibsqlError]: URL_INVALID: The URL 'undefined' is not in a valid format`
+  - Root cause: `TURSO_DATABASE_URL` environment variable not properly set on Vercel
+  - The `@libsql/client` createClient was being called with undefined URL
+  - Top-level imports of `@libsql/client` and `@prisma/adapter-libsql` caused issues even when not using Turso
+- **Fixed db.ts**: Rewrote database connection module with:
+  - Changed from top-level `import` to dynamic `require()` for `@libsql/client` and `@prisma/adapter-libsql`
+  - Added try/catch around Turso adapter creation with graceful fallback to local SQLite
+  - Added console logging for which database mode is being used
+  - Better null handling for environment variables
+- **Added /api/health endpoint**: New diagnostic API that shows:
+  - Status of each environment variable (TURSO_DATABASE_URL, TURSO_AUTH_TOKEN, DATABASE_URL)
+  - Database connectivity test (counts candidates)
+  - Returns 200 if healthy, 503 if degraded
+  - This will help diagnose any future deployment issues
+- **Verified locally**: All 11 candidates present, all APIs working, health check reports healthy
+- **Pushed to GitHub**: commit 1dddaf6 pushed to main branch
+- Vercel should auto-redeploy from the push
+
+Stage Summary:
+- Fixed Vercel deployment crash by making db.ts use dynamic imports
+- Added health check API endpoint for diagnostics
+- User still needs to verify TURSO_DATABASE_URL and TURSO_AUTH_TOKEN are set on Vercel
+- All features (candidates, image upload, FEED) already implemented but blocked by deployment error
+
+## Current Project Status (Updated)
+
+**Project**: "Qui lliga més aquest estiu?" - Competitive summer hookup leaderboard
+**Status**: Code fixed, pushed to GitHub. Waiting for Vercel redeployment with correct env vars.
+**Deployment**: Vercel (objetciu-estiu.vercel.app) + Turso (libsql://web-naii.aws-eu-west-1.turso.io)
+**Route**: Single page at `/`
+**Participants**: 11 (Ian, Putraskito, Pol, Rui, Clone, Dani, Max, Debig, Baldo, Roki, ElRey)
+**Exempt from leaderboard**: ElRey
+
+## Unresolved Issues / Risks
+
+- **Vercel env vars**: User needs to verify TURSO_DATABASE_URL and TURSO_AUTH_TOKEN are properly set on Vercel
+- **Mobile push notifications**: Desktop works, mobile doesn't (unresolved from previous session)
+- No authentication - anyone can modify counts (by design)
+- Auto-refresh is polling-based (10s interval)
+- Sandbox dev server OOM issues (infrastructure constraint, resolved on Vercel)
+
+## Priority Recommendations for Next Phase
+
+- Fix mobile push notifications
+- Test PWA install flow on mobile
+- Add image upload improvements (camera capture, compression options)
+- Make exempt status configurable via admin UI
+- Add ligue detail time-based filtering
