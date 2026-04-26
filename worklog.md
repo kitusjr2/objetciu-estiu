@@ -353,3 +353,72 @@ Stage Summary:
 - 4 styling improvements (profile modal animation, caliente indicator, rating bar, footer)
 - 3 new features (Night Out Mode, Activity notification badge, Enhanced share)
 - Code at 1053 lines, lint clean, all APIs functional
+
+---
+
+Task ID: 2
+Agent: Backend Agent
+Task: Add photoData field to Ligue model for storing base64 image proof
+
+Work Log:
+- **Prisma Schema Update**: Added `photoData String @default("")` field to the Ligue model in `/home/z/my-project/prisma/schema.prisma` for storing base64 encoded image proof data
+- **Database Migration**: Ran `bun run db:push` successfully - database synced and Prisma Client regenerated
+- **API: POST handler updated**: Modified `/home/z/my-project/src/app/api/ligues/route.ts` POST to accept `photoData` from request body and store it with `photoData: photoData || ''` default
+- **API: PUT handler updated**: Modified PUT to accept `photoData` from request body. Only updates `photoData` if explicitly provided (using `...(photoData !== undefined && { photoData })` spread pattern), preserving existing value when not sent
+- **API: GET handler**: Already returns all fields including the new `photoData` via `db.ligue.findMany()` - no changes needed
+- **Skipped upload API**: Per instructions, frontend will handle image resize client-side and send base64 directly in ligue POST - no separate `/api/upload` endpoint needed
+- **Verification**: Dev server tested - `/api/candidates` returns data, `/api/ligues` returns `[]` (empty, no ligues yet), lint passes clean
+
+Stage Summary:
+- Added `photoData` field to Ligue Prisma model (String, default "")
+- Updated POST handler to accept and store photoData
+- Updated PUT handler to optionally update photoData (only when provided)
+- GET handler already returns photoData via findMany
+- Database pushed successfully, lint clean, APIs verified working
+
+---
+Task ID: 3
+Agent: Frontend Agent
+Task: Add image upload in ligue form + FEED photo gallery + lightbox
+
+Work Log:
+- **Feature 1: Image Upload in Ligue Form**
+  - Added `liguePhoto` and `liguePhotoPreview` state variables
+  - Added `Camera` and `ImageIcon` imports from lucide-react
+  - Updated `LigueEntry` interface to include `photoData: string`
+  - Added `handleImageSelect` function that uses canvas to resize images (max 800px width, JPEG quality 0.7) and converts to base64 data URL
+  - Added image upload section to ligue form modal (after rating, before buttons) with:
+    - Styled file input button with Camera icon labeled "Foto prova 📸"
+    - Preview of selected image (thumbnail) with X button to remove
+    - Dashed border upload area when no photo selected
+  - Updated `submitLigueDetails` to include `photoData: liguePhoto` in POST body and reset photo states after submission
+  - Updated `skipLigue` and `openLigueForm` to also reset `liguePhoto` and `liguePhotoPreview`
+- **Feature 2: FEED Section - Photo Gallery**
+  - Added `activeSection` state (`'stats' | 'feed'`, default `'stats'`)
+  - Added tab buttons in right column header to switch between "Estadístiques" and "Feed 📸"
+  - When "Feed" is active, shows photo gallery grid:
+    - Filters ligues that have `photoData` (non-empty string)
+    - Displays as 2-column grid of photo cards with hover effects
+    - Each card shows: photo (aspect-square), person name + avatar, time ago
+    - Empty state with ImageIcon and emojis when no photos yet
+  - When "Estadístiques" is active, shows all existing stats content (unchanged)
+- **Lightbox**
+  - Added `lightboxPhoto` state (`string | null`)
+  - Added full-screen lightbox overlay with dark background, centered photo, X button to close
+  - Click photo in Feed, profile modal, or ligue history to open lightbox
+- **Ligue History Modal Update**
+  - Shows small thumbnail (12x12) of photo if `ligue.photoData` exists
+  - Clicking thumbnail opens lightbox
+- **Profile Modal Update**
+  - Shows small thumbnail (8x8) of photo if `ligue.photoData` exists in ligue entries
+  - Clicking thumbnail opens lightbox
+- **Lint**: Passes clean
+- **API**: Verified `/api/candidates` and `/api/ligues` working (server subject to sandbox OOM kills)
+- **File size**: 1159 lines
+
+Stage Summary:
+- Image upload with canvas resize (max 800px, JPEG 0.7) in ligue form
+- FEED tab with photo gallery grid in right column
+- Lightbox overlay for full-screen photo viewing
+- Photo thumbnails in ligue history and profile modals
+- All text in Catalan, lint passes, all APIs functional

@@ -35,5 +35,6 @@ model Ligue {
   edat       String   @default("")
   ubi        String   @default("")
   rating     Int      @default(0)
+  photoData  String   @default("")
   createdAt  DateTime @default(now())
 }

@@ -18,12 +18,13 @@ import {
   ArrowUp, ArrowDown, RefreshCw, X, Trash2, TrendingUp, MapPin, Calendar, Award,
   Volume2, VolumeX, Target, Timer, Swords, Gauge, Undo2, Search,
   PartyPopper, Activity, Eye, Info, MessageCircle, BarChart3, Medal, Pencil, Wine,
+  Camera, ImageIcon,
 } from 'lucide-react'
 
 /* ─── Types ─── */
 interface Candidate { id: string; name: string; nickname: string; photo: string; lligatCount: number; order: number }
 interface ActivityEntry { id: string; personId: string; personName: string; action: string; value: number; createdAt: string }
-interface LigueEntry { id: string; personId: string; personName: string; nom: string; edat: string; ubi: string; rating: number; createdAt: string }
+interface LigueEntry { id: string; personId: string; personName: string; nom: string; edat: string; ubi: string; rating: number; photoData: string; createdAt: string }
 interface LastAction { type: 'increment' | 'decrement'; personId: string; personName: string; prevCount: number }
 
 const EXEMPT_IDS = new Set(['elrey'])
@@ -121,6 +122,10 @@ export default function Home() {
   const [footerTime, setFooterTime] = useState('')
   const [nightMode, setNightMode] = useState(false)
   const [newActivityCount, setNewActivityCount] = useState(0)
+  const [liguePhoto, setLiguePhoto] = useState('')
+  const [liguePhotoPreview, setLiguePhotoPreview] = useState('')
+  const [activeSection, setActiveSection] = useState<'stats' | 'feed'>('stats')
+  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null)
   const lastActivityLen = useRef(0)
   const prevRanks = useRef<Record<string, number>>({})
   const toastId = useRef(0)
@@ -221,10 +226,10 @@ export default function Home() {
   }, [candidates, addToast])
   const submitLigueDetails = useCallback(async () => {
     if (!showLigueForm) return; const c = candidates.find(x => x.id === showLigueForm); if (!c) return
-    await fetch('/api/ligues', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId: c.id, personName: c.name, nom: ligueNom, edat: ligueEdat, ubi: ligueUbi, rating: ligueRating }) })
+    await fetch('/api/ligues', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId: c.id, personName: c.name, nom: ligueNom, edat: ligueEdat, ubi: ligueUbi, rating: ligueRating, photoData: liguePhoto }) })
     setLigues(await (await fetch('/api/ligues')).json()); addToast('Guardat! 📝', 'success')
-    setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0)
-  }, [showLigueForm, candidates, ligueNom, ligueEdat, ligueUbi, ligueRating, addToast])
+    setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); setLiguePhoto(''); setLiguePhotoPreview('')
+  }, [showLigueForm, candidates, ligueNom, ligueEdat, ligueUbi, ligueRating, liguePhoto, addToast])
   const deleteLigue = useCallback(async (id: string) => {
     await fetch(`/api/ligues?id=${id}`, { method: 'DELETE' }); setLigues(await (await fetch('/api/ligues')).json()); addToast('Lligada eliminada 🗑️', 'info'); setDeleteConfirmId(null)
   }, [addToast])
@@ -234,8 +239,30 @@ export default function Home() {
     setLigues(await (await fetch('/api/ligues')).json()); addToast('Editat! ✏️', 'success'); setEditingLigueId(null); setEditLigueNom(''); setEditLigueEdat(''); setEditLigueUbi(''); setEditLigueRating(0)
   }, [editingLigueId, editLigueNom, editLigueEdat, editLigueUbi, editLigueRating, addToast])
   const startLigueEdit = (l: LigueEntry) => { setEditingLigueId(l.id); setEditLigueNom(l.nom); setEditLigueEdat(l.edat); setEditLigueUbi(l.ubi); setEditLigueRating(l.rating) }
-  const skipLigue = useCallback(() => { setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0) }, [])
-  const openLigueForm = (id: string) => { setLigueHintId(null); setShowLigueForm(id); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0) }
+  const skipLigue = useCallback(() => { setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); setLiguePhoto(''); setLiguePhotoPreview('') }, [])
+  const openLigueForm = (id: string) => { setLigueHintId(null); setShowLigueForm(id); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); setLiguePhoto(''); setLiguePhotoPreview('') }
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let w = img.width, h = img.height
+        const maxW = 800
+        if (w > maxW) { h = (h * maxW) / w; w = maxW }
+        canvas.width = w; canvas.height = h
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0, w, h)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
+        setLiguePhoto(dataUrl)
+        setLiguePhotoPreview(dataUrl)
+      }
+      img.src = ev.target?.result as string
+    }
+    reader.readAsDataURL(file)
+  }
   // Derived
   const sorted = useMemo(() => [...candidates].sort((a, b) => { const ae = EXEMPT_IDS.has(a.id) ? 1 : 0; const be = EXEMPT_IDS.has(b.id) ? 1 : 0; if (ae !== be) return ae - be; return b.lligatCount - a.lligatCount || a.order - b.order }), [candidates])
   const nonExempt = useMemo(() => candidates.filter(c => !EXEMPT_IDS.has(c.id)), [candidates])
@@ -598,13 +625,22 @@ export default function Home() {
               )}
             </div>
 
-            {/* RIGHT: Stats */}
+            {/* RIGHT: Stats / Feed */}
             <div className="lg:col-span-3 space-y-4">
               <Card className="bg-white/70 dark:bg-stone-900/70 backdrop-blur-md border-orange-100/80 dark:border-stone-800/80 shadow-xl overflow-hidden">
                 <div className="h-1.5 bg-gradient-to-r from-rose-400 via-pink-400 to-fuchsia-400" />
                 <CardContent className="p-4 sm:p-5">
-                  <div className="flex items-center gap-2 mb-3"><Zap className="w-5 h-5 text-rose-500" /><h2 className="text-base sm:text-lg font-bold text-gray-800 dark:text-stone-200">Estadístiques</h2></div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Zap className="w-5 h-5 text-rose-500" />
+                    {/* Section tabs */}
+                    <div className="flex items-center gap-0.5 bg-gray-100 dark:bg-stone-800 rounded-lg p-0.5 flex-1">
+                      <button onClick={() => setActiveSection('stats')} className={`flex-1 px-2 py-1 rounded text-[11px] font-bold transition-all ${activeSection==='stats'?'bg-white dark:bg-stone-700 shadow-sm text-orange-600 dark:text-orange-400':'text-gray-400'}`}>Estadístiques</button>
+                      <button onClick={() => setActiveSection('feed')} className={`flex-1 px-2 py-1 rounded text-[11px] font-bold transition-all ${activeSection==='feed'?'bg-white dark:bg-stone-700 shadow-sm text-orange-600 dark:text-orange-400':'text-gray-400'}`}>Feed 📸</button>
+                    </div>
+                  </div>
                   <Separator className="mb-3 bg-orange-100 dark:bg-stone-700" />
+                  {activeSection === 'stats' ? (
+                  <>
                   <div className="grid grid-cols-2 gap-2.5">
                     <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/10 rounded-xl p-2.5 text-center border border-orange-100/50 dark:border-orange-800/30 hover:shadow-md transition-shadow"><p className="text-2xl font-extrabold text-orange-600 dark:text-orange-400">{totalLligues}</p><p className="text-[10px] text-gray-500">Total</p></div>
                     <div className="bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-900/20 dark:to-pink-900/10 rounded-xl p-2.5 text-center border border-rose-100/50 dark:border-rose-800/30 hover:shadow-md transition-shadow"><p className="text-2xl font-extrabold text-rose-600 dark:text-rose-400">{avgLligues}</p><p className="text-[10px] text-gray-500">Mitjana</p></div>
@@ -759,6 +795,46 @@ export default function Home() {
                         )
                       })()}
                     </div>
+                  )}
+                  </>
+                  ) : (
+                  /* FEED SECTION - Photo Gallery */
+                  (() => {
+                    const photoLigues = ligues.filter(l => l.photoData && l.photoData.trim() !== '')
+                    if (photoLigues.length === 0) return (
+                      <div className="text-center py-10">
+                        <div className="relative mx-auto w-20 h-20 mb-3">
+                          <ImageIcon className="w-10 h-10 text-pink-300 dark:text-pink-700 mx-auto absolute inset-0 m-auto" />
+                          <span className="absolute -top-1 -right-2 text-lg animate-float-slow">📸</span>
+                          <span className="absolute -bottom-1 -left-2 text-sm animate-float-medium">🖼️</span>
+                        </div>
+                        <p className="text-sm text-gray-400 italic">Encara no hi ha fotos...</p>
+                        <p className="text-xs text-gray-300 mt-1">Afegeix una foto de prova! 💋</p>
+                      </div>
+                    )
+                    return (
+                      <div className="grid grid-cols-2 gap-2 max-h-[560px] overflow-y-auto custom-scrollbar">
+                        {photoLigues.map(l => {
+                          const person = candidates.find(c => c.id === l.personId)
+                          return (
+                            <div key={l.id} className="rounded-xl overflow-hidden border border-pink-100/50 dark:border-pink-800/30 bg-white/50 dark:bg-stone-800/50 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 cursor-pointer group" onClick={() => setLightboxPhoto(l.photoData)}>
+                              <div className="relative aspect-square overflow-hidden">
+                                <img src={l.photoData} alt={`Foto de ${l.personName}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                              </div>
+                              <div className="p-1.5 flex items-center gap-1.5">
+                                <div className="w-5 h-5 rounded-full overflow-hidden ring-1 ring-gray-200 dark:ring-stone-700 flex-shrink-0">
+                                  <img src={person?.photo || ''} alt={l.personName} className="w-full h-full object-cover" />
+                                </div>
+                                <span className="text-[10px] font-semibold text-gray-700 dark:text-stone-300 truncate">{l.personName}</span>
+                                <span className="text-[8px] text-gray-400 ml-auto flex-shrink-0">{timeAgo(l.createdAt)}</span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })()
                   )}
                 </CardContent>
               </Card>
@@ -926,6 +1002,9 @@ export default function Home() {
                           ) : (
                           <div key={l.id} className="p-2 rounded-lg bg-orange-50/50 dark:bg-orange-900/10 border border-orange-100/30 dark:border-orange-800/20 text-[10px]">
                             <div className="flex items-center gap-2">
+                              {l.photoData && l.photoData.trim() !== '' && (
+                                <img src={l.photoData} alt={`Foto`} className="w-8 h-8 object-cover rounded-lg border border-pink-200 dark:border-pink-800/50 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0" onClick={() => setLightboxPhoto(l.photoData)} />
+                              )}
                               {l.nom && <span className="text-gray-700 dark:text-stone-300 font-medium">{l.nom}</span>}
                               {l.edat && <span className="text-gray-400">{l.edat} anys</span>}
                               {l.ubi && <span className="text-gray-400 flex items-center gap-0.5"><MapPin className="w-2.5 h-2.5" />{l.ubi}</span>}
@@ -972,6 +1051,22 @@ export default function Home() {
                     <div><label className="text-xs font-semibold text-gray-600 dark:text-stone-400 flex items-center gap-1.5 mb-2"><Star className="w-3 h-3 text-amber-400" /> Valoració</label>
                       <div className="flex items-center gap-1 flex-wrap">{Array.from({ length: 10 }, (_, i) => i+1).map(v => (<button key={v} onClick={() => setLigueRating(v===ligueRating?0:v)} aria-label={`Valoració ${v}`} className={`w-8 h-8 rounded-lg text-xs font-bold transition-all rating-btn-hover ${v<=ligueRating?'bg-gradient-to-b from-amber-400 to-orange-500 text-white shadow-md':'bg-gray-100 dark:bg-stone-800 text-gray-400 hover:bg-gray-200 dark:hover:bg-stone-700'}`}>{v}</button>))}</div>
                     </div>
+                    {/* Photo upload */}
+                    <div>
+                      <label className="text-xs font-semibold text-gray-600 dark:text-stone-400 flex items-center gap-1.5 mb-2"><Camera className="w-3 h-3 text-pink-400" /> Foto prova 📸</label>
+                      {liguePhotoPreview ? (
+                        <div className="relative inline-block">
+                          <img src={liguePhotoPreview} alt="Vista prèvia" className="w-24 h-24 object-cover rounded-xl border-2 border-pink-200 dark:border-pink-800 shadow-md" />
+                          <button onClick={() => { setLiguePhoto(''); setLiguePhotoPreview('') }} aria-label="Treure foto" className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-[10px] shadow-md hover:bg-red-600 transition-colors"><X className="w-3 h-3" /></button>
+                        </div>
+                      ) : (
+                        <label className="flex items-center justify-center gap-2 w-full h-16 rounded-xl border-2 border-dashed border-pink-200 dark:border-pink-800/50 bg-pink-50/50 dark:bg-pink-900/10 cursor-pointer hover:bg-pink-100/50 dark:hover:bg-pink-900/20 transition-all">
+                          <Camera className="w-4 h-4 text-pink-400" />
+                          <span className="text-xs text-pink-500 font-medium">Pujar foto</span>
+                          <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+                        </label>
+                      )}
+                    </div>
                   </div>
                   <div className="flex gap-2 mt-4"><Button onClick={submitLigueDetails} className="flex-1 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-bold">Guardar 💾</Button><Button variant="ghost" onClick={skipLigue}>Saltar</Button></div>
                 </CardContent>
@@ -994,6 +1089,9 @@ export default function Home() {
                   {ligues.filter(l => l.personId===showLigueHistory).length===0 ? <p className="text-sm text-gray-400 italic text-center py-4">Sense detalls... 😴</p> : (
                     <div className="space-y-2">{ligues.filter(l => l.personId===showLigueHistory).map(ligue => (
                       <div key={ligue.id} className="p-3 rounded-xl bg-gradient-to-r from-orange-50/50 to-rose-50/50 dark:from-orange-900/10 dark:to-rose-900/10 border border-orange-100/50 dark:border-orange-800/30 relative group transition-all hover:shadow-md">
+                        {ligue.photoData && ligue.photoData.trim() !== '' && (
+                          <div className="mb-2"><img src={ligue.photoData} alt={`Foto de ${ligue.personName}`} className="w-12 h-12 object-cover rounded-lg border border-pink-200 dark:border-pink-800/50 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setLightboxPhoto(ligue.photoData)} /></div>
+                        )}
                         <div className="grid grid-cols-2 gap-2 text-xs">
                           {ligue.nom && <div><span className="text-gray-400 flex items-center gap-0.5"><Heart className="w-2.5 h-2.5" /> Nom:</span><p className="font-semibold text-gray-700 dark:text-stone-300">{ligue.nom}</p></div>}
                           {ligue.edat && <div><span className="text-gray-400 flex items-center gap-0.5"><Users className="w-2.5 h-2.5" /> Edat:</span><p className="font-semibold text-gray-700 dark:text-stone-300">{ligue.edat}</p></div>}
@@ -1037,6 +1135,14 @@ export default function Home() {
             <DialogFooter><Button variant="ghost" onClick={() => setShowResetConfirm(false)}>Cancel·lar</Button><Button variant="destructive" onClick={resetAll} className="gap-1"><RotateCcw className="w-3.5 h-3.5" />Reiniciar</Button></DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* LIGHTBOX */}
+        {lightboxPhoto && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setLightboxPhoto(null)}>
+            <button onClick={() => setLightboxPhoto(null)} aria-label="Tancar foto" className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm text-white flex items-center justify-center hover:bg-white/30 transition-colors z-10"><X className="w-5 h-5" /></button>
+            <img src={lightboxPhoto} alt="Foto ampliada" className="max-w-[90vw] max-h-[85vh] object-contain rounded-xl shadow-2xl animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()} />
+          </div>
+        )}
 
         {/* FOOTER */}
         <footer className="relative z-10 mt-auto py-3 px-4 border-t border-orange-100/30 dark:border-stone-800/30 footer-gradient backdrop-blur-sm">

@@ -11,7 +11,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
-  const { personId, personName, nom, edat, ubi, rating } = body
+  const { personId, personName, nom, edat, ubi, rating, photoData } = body
 
   if (!personId || !personName) {
     return Response.json({ error: 'personId and personName are required' }, { status: 400 })
@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
       edat: edat || '',
       ubi: ubi || '',
       rating: rating || 0,
+      photoData: photoData || '',
     },
   })
 
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   const body = await request.json()
-  const { id, nom, edat, ubi, rating } = body
+  const { id, nom, edat, ubi, rating, photoData } = body
 
   if (!id) {
     return Response.json({ error: 'id is required' }, { status: 400 })
@@ -51,6 +52,7 @@ export async function PUT(request: NextRequest) {
       edat: edat ?? ligue.edat,
       ubi: ubi ?? ligue.ubi,
       rating: rating ?? ligue.rating,
+      ...(photoData !== undefined && { photoData }),
     },
   })
 
