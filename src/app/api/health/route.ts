@@ -34,7 +34,15 @@ export async function GET() {
     })
   }
 
-  // Check 3: Database connection
+  // Check 3: Which DB path is being used
+  const usingTurso = tursoUrl && (tursoUrl.startsWith('libsql://') || tursoUrl.startsWith('https://'))
+  checks.push({
+    name: 'DB_MODE',
+    status: 'ok',
+    detail: usingTurso ? 'Turso (remote libsql)' : 'Local SQLite',
+  })
+
+  // Check 4: Database connection
   try {
     const candidateCount = await db.candidate.count()
     checks.push({

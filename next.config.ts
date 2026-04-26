@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
+  serverExternalPackages: [
+    '@prisma/client',
+    '@libsql/client',
+    '@prisma/adapter-libsql',
+  ],
   headers: async () => [
     {
       source: "/sw.js",
