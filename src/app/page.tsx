@@ -140,16 +140,26 @@ export default function Home() {
     try {
       const [c, a, l] = await Promise.all([fetch('/api/candidates'), fetch('/api/activity'), fetch('/api/ligues')])
       const cd = await c.json(); const ad = await a.json(); const ld = await l.json()
-      // Check for API errors
-      if (cd?.error) { setDbError(`${cd.error}: ${cd.detail || ''} | TURSO_URL: ${cd.tursoUrl || 'N/A'}`); return }
-      if (!Array.isArray(cd) || !Array.isArray(ad) || !Array.isArray(ld)) { setDbError('API returned unexpected data format'); return }
-      setCandidates(cd); setActivity(ad); setLigues(ld)
-      setDbError(null)
+      // Check for API errors - but be resilient, partial data is OK
+      const errors: string[] = []
+      if (cd?.error) errors.push(`Candidates: ${cd.error} — ${cd.detail || ''}`)
+      if (ad?.error) errors.push(`Activity: ${ad.error} — ${ad.detail || ''}`)
+      if (ld?.error) errors.push(`Ligues: ${ld.error} — ${ld.detail || ''}`)
+      // Set whatever data we got (even if partial)
+      if (Array.isArray(cd)) setCandidates(cd)
+      if (Array.isArray(ad)) setActivity(ad)
+      if (Array.isArray(ld)) setLigues(ld)
+      // Show error only if ALL three failed, or if candidates failed
+      if (errors.length > 0 && (!Array.isArray(cd) || errors.length >= 2)) {
+        setDbError(errors.join(' | '))
+      } else {
+        setDbError(null)
+      }
       // Detect new activity from other users
-      if (lastActivityLen.current > 0 && ad.length > lastActivityLen.current) {
+      if (Array.isArray(ad) && lastActivityLen.current > 0 && ad.length > lastActivityLen.current) {
         setNewActivityCount(p => p + (ad.length - lastActivityLen.current))
       }
-      lastActivityLen.current = ad.length
+      if (Array.isArray(ad)) lastActivityLen.current = ad.length
     } catch (err: any) { setDbError(err?.message || 'Network error') } finally { setLoading(false) }
   }, [])
   useEffect(() => { fetchData() }, [fetchData])

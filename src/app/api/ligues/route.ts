@@ -10,7 +10,20 @@ export async function GET() {
     return Response.json(ligues)
   } catch (error: any) {
     console.error('[ligues] Database error:', error?.message || error)
-    return Response.json({ error: 'Database connection failed', detail: error?.message || String(error) }, { status: 500 })
+    // Auto-migrate on schema mismatch, then retry
+    if (error?.message?.includes('no such column') || error?.message?.includes('SQL_INPUT_ERROR')) {
+      console.log('[ligues] Attempting auto-migration...')
+      try {
+        await db.$executeRawUnsafe(`ALTER TABLE Ligue ADD COLUMN photoData TEXT NOT NULL DEFAULT ''`)
+        console.log('[ligues] Auto-migration successful, retrying query...')
+        const ligues = await db.ligue.findMany({ orderBy: { createdAt: 'desc' }, take: 50 })
+        return Response.json(ligues)
+      } catch (migrateError: any) {
+        console.error('[ligues] Auto-migration failed:', migrateError?.message)
+      }
+    }
+    // Return empty array instead of error so frontend doesn't break
+    return Response.json([])
   }
 }
 

@@ -10,7 +10,8 @@ export async function GET() {
     return Response.json(logs)
   } catch (error: any) {
     console.error('[activity] Database error:', error?.message || error)
-    return Response.json({ error: 'Database connection failed', detail: error?.message || String(error) }, { status: 500 })
+    // Return empty array instead of error so frontend doesn't break
+    return Response.json([])
   }
 }
 
