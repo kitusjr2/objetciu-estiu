@@ -496,3 +496,65 @@ Stage Summary:
 - Add image upload improvements (camera capture, compression options)
 - Make exempt status configurable via admin UI
 - Add ligue detail time-based filtering
+
+---
+Task ID: 18
+Agent: Main Agent
+Task: Fix Vercel deployment - candidates not showing, env vars wrong
+
+Work Log:
+- **Diagnosed root cause**: Analyzed user's Vercel env var screenshots
+  - `TURSO_DATABASE_URL` was set to `libsql://mydb-user.turso.io` (WRONG placeholder!)
+  - Should be `libsql://web-naii.aws-eu-west-1.turso.io`
+  - Also verified Turso database is fine - has all 4 tables and 11 candidates
+  - Connected to Turso directly via libsql client to confirm
+- **Added comprehensive error handling** to all API routes:
+  - `/api/candidates`: Returns diagnostic info on failure (env var status, error detail)
+  - `/api/activity`: try/catch with error responses
+  - `/api/ligues`: try/catch on all CRUD operations
+  - `/api/candidates/[id]`: try/catch on PATCH
+- **Added database error banner** to frontend:
+  - Red banner with ⚠️ icon when database connection fails
+  - Shows error detail and advice about checking env vars
+  - Dismissable with X button
+- **Improved health check** (`/api/health`):
+  - Now validates TURSO_DATABASE_URL is not a placeholder (checks for 'mydb-user' or 'example')
+  - Shows first 50 chars of URLs for easier debugging
+  - Shows token prefix for auth verification
+- **Updated fetchData** in frontend:
+  - Now checks for API error responses (`cd?.error`)
+  - Validates response is array before setting state
+  - Sets `dbError` state on failure instead of silently failing
+- **Pushed to GitHub**: commit 7e9e4bb
+
+Stage Summary:
+- Root cause identified: wrong TURSO_DATABASE_URL value on Vercel
+- All API routes now have proper error handling
+- Frontend shows visible error when DB connection fails
+- Health check detects placeholder URLs
+- User needs to fix env vars on Vercel
+
+## Current Project Status (Updated)
+
+**Project**: "Qui lliga més aquest estiu?" - Competitive summer hookup leaderboard
+**Status**: Code robust with error handling. Waiting for user to fix Vercel env vars.
+**Deployment**: Vercel (objetciu-estiu.vercel.app) + Turso (libsql://web-naii.aws-eu-west-1.turso.io)
+**Route**: Single page at `/`
+**Participants**: 11 (Ian, Putraskito, Pol, Rui, Clone, Dani, Max, Debig, Baldo, Roki, ElRey)
+**Exempt from leaderboard**: ElRey
+
+## CRITICAL: User Action Required
+
+The TURSO_DATABASE_URL on Vercel is WRONG. It's set to `libsql://mydb-user.turso.io` (a placeholder).
+It MUST be changed to: `libsql://web-naii.aws-eu-west-1.turso.io`
+
+Also update TURSO_AUTH_TOKEN to the new token created by the user.
+
+After fixing env vars, redeploy on Vercel, then visit /api/health to verify.
+
+## Unresolved Issues / Risks
+
+- **CRITICAL: Vercel env vars wrong**: TURSO_DATABASE_URL set to placeholder, needs to be fixed
+- **Mobile push notifications**: Desktop works, mobile doesn't
+- No authentication - anyone can modify counts (by design)
+- Auto-refresh is polling-based (10s interval)
