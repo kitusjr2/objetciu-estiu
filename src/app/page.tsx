@@ -126,6 +126,7 @@ export default function Home() {
   const [liguePhotoPreview, setLiguePhotoPreview] = useState('')
   const [activeSection, setActiveSection] = useState<'stats' | 'feed'>('stats')
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null)
+  const [dbError, setDbError] = useState<string | null>(null)
   const lastActivityLen = useRef(0)
   const prevRanks = useRef<Record<string, number>>({})
   const toastId = useRef(0)
@@ -139,13 +140,17 @@ export default function Home() {
     try {
       const [c, a, l] = await Promise.all([fetch('/api/candidates'), fetch('/api/activity'), fetch('/api/ligues')])
       const cd = await c.json(); const ad = await a.json(); const ld = await l.json()
+      // Check for API errors
+      if (cd?.error) { setDbError(`${cd.error}: ${cd.detail || ''} | TURSO_URL: ${cd.tursoUrl || 'N/A'}`); return }
+      if (!Array.isArray(cd) || !Array.isArray(ad) || !Array.isArray(ld)) { setDbError('API returned unexpected data format'); return }
       setCandidates(cd); setActivity(ad); setLigues(ld)
+      setDbError(null)
       // Detect new activity from other users
       if (lastActivityLen.current > 0 && ad.length > lastActivityLen.current) {
         setNewActivityCount(p => p + (ad.length - lastActivityLen.current))
       }
       lastActivityLen.current = ad.length
-    } catch {} finally { setLoading(false) }
+    } catch (err: any) { setDbError(err?.message || 'Network error') } finally { setLoading(false) }
   }, [])
   useEffect(() => { fetchData() }, [fetchData])
   useEffect(() => { const iv = setInterval(fetchData, 10000); return () => clearInterval(iv) }, [fetchData])
@@ -423,6 +428,21 @@ export default function Home() {
             </div>
           </div>
         </header>
+
+        {/* DATABASE ERROR BANNER */}
+        {dbError && (
+          <div className="relative z-10 px-4 max-w-7xl mx-auto w-full mb-4">
+            <div className="bg-red-500/90 text-white rounded-xl p-4 flex items-center gap-3 shadow-lg backdrop-blur-md">
+              <span className="text-2xl">⚠️</span>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm">Error de connexió a la base de dades</p>
+                <p className="text-xs opacity-80 mt-1 break-all">{dbError}</p>
+                <p className="text-xs opacity-70 mt-1">Verifica les variables d'entorn a Vercel: TURSO_DATABASE_URL i TURSO_AUTH_TOKEN</p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setDbError(null)} className="text-white/80 hover:text-white hover:bg-white/20"><X className="w-4 h-4" /></Button>
+            </div>
+          </div>
+        )}
 
         {/* TIMELINE */}
         {showTimeline && activity.length > 0 && (

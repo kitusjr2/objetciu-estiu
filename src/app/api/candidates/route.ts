@@ -15,13 +15,25 @@ const INITIAL_CANDIDATES = [
 ]
 
 export async function GET() {
-  let candidates = await db.candidate.findMany({ orderBy: { order: 'asc' } })
+  try {
+    let candidates = await db.candidate.findMany({ orderBy: { order: 'asc' } })
 
-  // Seed if empty
-  if (candidates.length === 0) {
-    await db.candidate.createMany({ data: INITIAL_CANDIDATES })
-    candidates = await db.candidate.findMany({ orderBy: { order: 'asc' } })
+    // Seed if empty
+    if (candidates.length === 0) {
+      await db.candidate.createMany({ data: INITIAL_CANDIDATES })
+      candidates = await db.candidate.findMany({ orderBy: { order: 'asc' } })
+    }
+
+    return Response.json(candidates)
+  } catch (error: any) {
+    console.error('[candidates] Database error:', error?.message || error)
+    return Response.json({
+      error: 'Database connection failed',
+      detail: error?.message || String(error),
+      hint: 'Check TURSO_DATABASE_URL and TURSO_AUTH_TOKEN environment variables',
+      tursoUrl: process.env.TURSO_DATABASE_URL ? `${process.env.TURSO_DATABASE_URL.substring(0, 30)}...` : 'NOT SET',
+      tursoTokenSet: !!process.env.TURSO_AUTH_TOKEN,
+      dbUrl: process.env.DATABASE_URL ? `${process.env.DATABASE_URL.substring(0, 30)}...` : 'NOT SET',
+    }, { status: 500 })
   }
-
-  return Response.json(candidates)
 }

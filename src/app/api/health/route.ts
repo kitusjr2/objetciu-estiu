@@ -11,20 +11,30 @@ export async function GET() {
   checks.push({
     name: 'TURSO_DATABASE_URL',
     status: tursoUrl ? 'ok' : 'error',
-    detail: tursoUrl ? `${tursoUrl.substring(0, 30)}...` : 'NOT SET',
+    detail: tursoUrl ? `${tursoUrl.substring(0, 50)}${tursoUrl.length > 50 ? '...' : ''}` : 'NOT SET',
   })
   checks.push({
     name: 'TURSO_AUTH_TOKEN',
     status: tursoToken ? 'ok' : 'error',
-    detail: tursoToken ? '***set***' : 'NOT SET',
+    detail: tursoToken ? `Set (${tursoToken.substring(0, 10)}...)` : 'NOT SET',
   })
   checks.push({
     name: 'DATABASE_URL',
     status: dbUrl ? 'ok' : 'error',
-    detail: dbUrl ? `${dbUrl.substring(0, 30)}...` : 'NOT SET',
+    detail: dbUrl ? `${dbUrl.substring(0, 50)}${dbUrl.length > 50 ? '...' : ''}` : 'NOT SET',
   })
 
-  // Check 2: Database connection
+  // Check 2: Verify Turso URL is correct (not a placeholder)
+  if (tursoUrl) {
+    const isPlaceholder = tursoUrl.includes('mydb-user') || tursoUrl.includes('example')
+    checks.push({
+      name: 'TURSO_URL_VALID',
+      status: isPlaceholder ? 'error' : 'ok',
+      detail: isPlaceholder ? 'URL appears to be a placeholder! Should be libsql://web-naii.aws-eu-west-1.turso.io' : 'URL format looks valid',
+    })
+  }
+
+  // Check 3: Database connection
   try {
     const candidateCount = await db.candidate.count()
     checks.push({
@@ -40,10 +50,10 @@ export async function GET() {
     })
   }
 
-  const allOk = checks.every(c => c.status === 'ok' || c.name === 'TURSO_AUTH_TOKEN' || c.name === 'TURSO_DATABASE_URL')
+  const allOk = checks.every(c => c.status === 'ok')
 
   return Response.json({
-    status: allOk ? 'healthy' : 'degraded',
+    status: allOk ? 'healthy' : 'unhealthy',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
     checks,
