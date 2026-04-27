@@ -293,6 +293,29 @@ export default function Home() {
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    // Use createImageBitmap with imageOrientation to respect EXIF orientation (fixes selfie mirror issue)
+    if (typeof createImageBitmap === 'function') {
+      createImageBitmap(file, { imageOrientation: 'from-image' }).then(bitmap => {
+        const canvas = document.createElement('canvas')
+        let w = bitmap.width, h = bitmap.height
+        const maxW = 800
+        if (w > maxW) { h = (h * maxW) / w; w = maxW }
+        canvas.width = w; canvas.height = h
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(bitmap, 0, 0, w, h)
+        bitmap.close()
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
+        setLiguePhoto(dataUrl)
+        setLiguePhotoPreview(dataUrl)
+      }).catch(() => {
+        // Fallback: try the old method if createImageBitmap fails
+        processImageFallback(file)
+      })
+    } else {
+      processImageFallback(file)
+    }
+  }
+  const processImageFallback = (file: File) => {
     const reader = new FileReader()
     reader.onload = (ev) => {
       const img = new Image()
@@ -320,7 +343,9 @@ export default function Home() {
   const topCandidate = sorted.find(c => !EXEMPT_IDS.has(c.id))
   const activeCount = nonExempt.filter(c => c.lligatCount > 0).length
   const lastActTime = activity.length > 0 ? timeAgo(activity[0].createdAt) : null
-  const getAvgRating = (pid: string) => { const pl = ligues.filter(l => l.personId === pid && l.rating > 0); return pl.length === 0 ? 0 : pl.reduce((s, l) => s + l.rating, 0) / pl.length }
+  // Set of candidate IDs that currently have lligatCount > 0 — used to filter stats
+  const activeCandidateIds = useMemo(() => new Set(candidates.filter(c => c.lligatCount > 0).map(c => c.id)), [candidates])
+  const getAvgRating = (pid: string) => { if (!activeCandidateIds.has(pid)) return 0; const pl = ligues.filter(l => l.personId === pid && l.rating > 0); return pl.length === 0 ? 0 : pl.reduce((s, l) => s + l.rating, 0) / pl.length }
   const getStreak = (pid: string) => { const pa = activity.filter(a => a.personId === pid).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); let s = 0; for (const e of pa) { if (e.action === 'increment') s++; else break } return s }
   const isCaliente = (pid: string) => { const h = Date.now() - 3600000; return activity.some(a => a.personId === pid && a.action === 'increment' && new Date(a.createdAt).getTime() > h) }
   const rivalries = useMemo(() => {
@@ -331,12 +356,12 @@ export default function Home() {
   }, [nonExempt])
 
   const locationStats = useMemo(() => {
-    const withUbi = ligues.filter(l => l.ubi.trim() !== '')
+    const withUbi = ligues.filter(l => l.ubi.trim() !== '' && activeCandidateIds.has(l.personId))
     const uniqueLocations = new Set(withUbi.map(l => l.ubi.trim().toLowerCase()))
     const counts: Record<string, number> = {}
     withUbi.forEach(l => { const k = l.ubi.trim(); if (k) counts[k] = (counts[k] || 0) + 1 })
     return { unique: uniqueLocations.size, top3: Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 3) }
-  }, [ligues])
+  }, [ligues, activeCandidateIds])
 
   const filteredCandidates = useMemo(() => {
     if (!searchQuery.trim()) return candidates
@@ -348,47 +373,48 @@ export default function Home() {
   const weeklyStats = useMemo(() => {
     const now = Date.now()
     const weekAgo = now - 7 * 86400000
-    const weekActivity = activity.filter(a => a.action === 'increment' && new Date(a.createdAt).getTime() > weekAgo)
+    const weekActivity = activity.filter(a => a.action === 'increment' && new Date(a.createdAt).getTime() > weekAgo && activeCandidateIds.has(a.personId))
     const perPerson: Record<string, number> = {}
     weekActivity.forEach(a => { perPerson[a.personId] = (perPerson[a.personId] || 0) + 1 })
     const sorted = Object.entries(perPerson).sort((a, b) => b[1] - a[1])
     return { total: weekActivity.length, top: sorted[0] ? { id: sorted[0][0], count: sorted[0][1] } : null }
-  }, [activity])
+  }, [activity, activeCandidateIds])
 
-  const heatmap = useMemo(() => getActivityHeatmap(activity), [activity])
+  const heatmap = useMemo(() => getActivityHeatmap(activity.filter(a => activeCandidateIds.has(a.personId))), [activity, activeCandidateIds])
 
   const recentLigues = useMemo(() => {
-    return ligues.filter(l => l.nom || l.ubi || l.rating > 0).slice(0, 5)
-  }, [ligues])
+    return ligues.filter(l => (l.nom || l.ubi || l.rating > 0) && activeCandidateIds.has(l.personId)).slice(0, 5)
+  }, [ligues, activeCandidateIds])
 
   // Today's stats
   const todayStats = useMemo(() => {
     const n = new Date(), ds = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime(), de = ds + 86400000
-    const ta = activity.filter(a => a.action === 'increment' && new Date(a.createdAt).getTime() >= ds && new Date(a.createdAt).getTime() < de)
-    const tl = ligues.filter(l => new Date(l.createdAt).getTime() >= ds && new Date(l.createdAt).getTime() < de)
+    const ta = activity.filter(a => a.action === 'increment' && new Date(a.createdAt).getTime() >= ds && new Date(a.createdAt).getTime() < de && activeCandidateIds.has(a.personId))
+    const tl = ligues.filter(l => new Date(l.createdAt).getTime() >= ds && new Date(l.createdAt).getTime() < de && activeCandidateIds.has(l.personId))
     const pp: Record<string, number> = {}; ta.forEach(a => { pp[a.personId] = (pp[a.personId] || 0) + 1 })
     const s = Object.entries(pp).sort((a, b) => b[1] - a[1])
     const ar = tl.some(l => l.rating > 0) ? tl.filter(l => l.rating > 0).reduce((sum, l) => sum + l.rating, 0) / tl.filter(l => l.rating > 0).length : 0
     return { total: ta.length, top: s[0] ? { id: s[0][0], count: s[0][1] } : null, avgRating: ar }
-  }, [activity, ligues])
+  }, [activity, ligues, activeCandidateIds])
 
   const [summerDays, setSummerDays] = useState('')
   useEffect(() => { const end = new Date('2026-09-22'); const u = () => { const d = Math.floor((end.getTime() - Date.now()) / 86400000); const h = Math.floor(((end.getTime() - Date.now()) % 86400000) / 3600000); setSummerDays(`${d}d ${h}h`) }; u(); const iv = setInterval(u, 60000); return () => clearInterval(iv) }, [])
 
   // Hall of Fame records
   const hallOfFame = useMemo(() => {
-    const inc = activity.filter(a => a.action === 'increment')
+    const inc = activity.filter(a => a.action === 'increment' && activeCandidateIds.has(a.personId))
     // Most lligues in a single day
     const dayCounts: Record<string, number> = {}
     inc.forEach(a => { const d = new Date(a.createdAt).toISOString().slice(0, 10); dayCounts[d] = (dayCounts[d] || 0) + 1 })
     const bestDay = Object.entries(dayCounts).sort((a, b) => b[1] - a[1])[0]
     // Longest streak ever (across all activity sorted by time per person)
     let maxStreak = 0; let streakHolder = ''
-    candidates.forEach(c => { const pa = activity.filter(a => a.personId === c.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); let s = 0; for (const e of pa) { if (e.action === 'increment') s++; else break } if (s > maxStreak) { maxStreak = s; streakHolder = c.name } })
+    candidates.filter(c => activeCandidateIds.has(c.id)).forEach(c => { const pa = activity.filter(a => a.personId === c.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); let s = 0; for (const e of pa) { if (e.action === 'increment') s++; else break } if (s > maxStreak) { maxStreak = s; streakHolder = c.name } })
     // Highest rating ever
-    const topRating = ligues.length > 0 ? ligues.reduce((b, l) => l.rating > (b?.rating || 0) ? l : b, ligues[0]) : null
+    const eligibleLigues = ligues.filter(l => activeCandidateIds.has(l.personId))
+    const topRating = eligibleLigues.length > 0 ? eligibleLigues.reduce((b, l) => l.rating > (b?.rating || 0) ? l : b, eligibleLigues[0]) : null
     return { bestDay: bestDay ? { date: bestDay[0], count: bestDay[1] } : null, maxStreak, streakHolder, topRating }
-  }, [activity, candidates, ligues])
+  }, [activity, candidates, ligues, activeCandidateIds])
 
   // Counter bump effect
   useEffect(() => { if (prevTotalRef.current > 0 && totalLligues !== prevTotalRef.current) { setCounterBump(true); setTimeout(() => setCounterBump(false), 300) } prevTotalRef.current = totalLligues }, [totalLligues])
@@ -731,7 +757,7 @@ export default function Home() {
                     </div>
                   )}
                   {/* Speed */}
-                  {(() => { const ri = activity.filter(a => a.action==='increment'&&Date.now()-new Date(a.createdAt).getTime()<86400000).length; if (ri===0&&totalLligues===0) return null; const sp = Math.min(ri/5*100, 100); return (
+                  {(() => { const ri = activity.filter(a => a.action==='increment'&&Date.now()-new Date(a.createdAt).getTime()<86400000&&activeCandidateIds.has(a.personId)).length; if (ri===0&&totalLligues===0) return null; const sp = Math.min(ri/5*100, 100); return (
                     <div className="mt-3 p-2.5 rounded-lg bg-gradient-to-r from-cyan-50/50 to-blue-50/50 dark:from-cyan-900/10 dark:to-blue-900/10 border border-cyan-100/30 dark:border-cyan-800/20">
                       <div className="flex items-center gap-1.5 mb-1"><Gauge className="w-3 h-3 text-cyan-500" /><span className="text-xs font-bold text-gray-500 dark:text-stone-400">Ritme avui</span></div>
                       <div className="h-2 bg-gray-200/60 dark:bg-stone-700/40 rounded-full overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 transition-all duration-700" style={{ width: `${sp}%` }} /></div>
@@ -747,7 +773,7 @@ export default function Home() {
                     </div>
                   )}
                   {/* Top Rating */}
-                  {ligues.length>0 && (<div className="mt-3"><div className="flex items-center gap-1.5 mb-2"><Award className="w-3.5 h-3.5 text-amber-500" /><p className="text-sm font-bold text-gray-500">Top Valoració</p></div><div className="space-y-1">{candidates.filter(c => getAvgRating(c.id)>0).sort((a, b) => getAvgRating(b.id)-getAvgRating(a.id)).slice(0, 3).map((c, i) => (<div key={c.id} className="flex items-center gap-2 text-xs px-2 py-1 rounded-lg bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100/30 dark:border-amber-800/20 hover:shadow-sm transition-shadow"><span>{i===0?'🥇':i===1?'🥈':'🥉'}</span><span className="font-semibold text-gray-700 dark:text-stone-300">{c.name}</span><div className="ml-auto flex items-center gap-1"><Star className="w-3 h-3 text-amber-400 fill-amber-400" /><span className="font-bold text-amber-600 dark:text-amber-400">{getAvgRating(c.id).toFixed(1)}</span></div></div>))}</div></div>)}
+                  {ligues.length>0 && (<div className="mt-3"><div className="flex items-center gap-1.5 mb-2"><Award className="w-3.5 h-3.5 text-amber-500" /><p className="text-sm font-bold text-gray-500">Top Valoració</p></div><div className="space-y-1">{candidates.filter(c => c.lligatCount>0 && getAvgRating(c.id)>0).sort((a, b) => getAvgRating(b.id)-getAvgRating(a.id)).slice(0, 3).map((c, i) => (<div key={c.id} className="flex items-center gap-2 text-xs px-2 py-1 rounded-lg bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100/30 dark:border-amber-800/20 hover:shadow-sm transition-shadow"><span>{i===0?'🥇':i===1?'🥈':'🥉'}</span><span className="font-semibold text-gray-700 dark:text-stone-300">{c.name}</span><div className="ml-auto flex items-center gap-1"><Star className="w-3 h-3 text-amber-400 fill-amber-400" /><span className="font-bold text-amber-600 dark:text-amber-400">{getAvgRating(c.id).toFixed(1)}</span></div></div>))}</div></div>)}
                   {/* Achievements */}
                   {candidates.some(c => ACHIEVEMENTS.some(a => c.lligatCount>=a.min)) && (<div className="mt-3"><div className="flex items-center gap-1.5 mb-2"><Target className="w-3.5 h-3.5 text-orange-500" /><p className="text-sm font-bold text-gray-500">Fites</p></div><div className="space-y-1 max-h-32 overflow-y-auto custom-scrollbar">{candidates.filter(c => ACHIEVEMENTS.some(a => c.lligatCount>=a.min)).map(c => (<div key={c.id} className="flex items-center gap-1.5 text-xs px-2 py-1.5 rounded-lg bg-gradient-to-r from-orange-50/50 to-rose-50/50 dark:from-orange-900/10 dark:to-rose-900/10 border border-orange-100/30 dark:border-orange-800/20"><div className="w-5 h-5 rounded-full overflow-hidden ring-1 ring-gray-200 dark:ring-stone-700 flex-shrink-0"><img src={c.photo} alt={c.name} style={IMG_POS[c.id]?{objectPosition:IMG_POS[c.id]}:undefined} className="w-full h-full object-cover" /></div><span className="font-semibold text-gray-700 dark:text-stone-300 truncate">{c.name}</span><div className="ml-auto flex items-center gap-0.5">{ACHIEVEMENTS.filter(a => c.lligatCount>=a.min).map(a => <Tooltip key={a.id}><TooltipTrigger asChild><span className="text-xs hover:scale-125 inline-block transition-transform">{a.emoji}</span></TooltipTrigger><TooltipContent side="left" className="text-xs"><strong>{a.name}</strong>: {a.desc}</TooltipContent></Tooltip>)}</div></div>))}</div></div>)}
                   {/* Podium */}
@@ -864,7 +890,7 @@ export default function Home() {
                   ) : (
                   /* FEED SECTION - Photo Gallery with details */
                   (() => {
-                    const allPhotoLigues = ligues.filter(l => l.photoData && l.photoData.trim() !== '')
+                    const allPhotoLigues = ligues.filter(l => l.photoData && l.photoData.trim() !== '' && activeCandidateIds.has(l.personId))
                     const photoLigues = feedFilterId ? allPhotoLigues.filter(l => l.personId === feedFilterId) : allPhotoLigues
                     const peopleWithPhotos = [...new Set(allPhotoLigues.map(l => l.personId))]
                     return (
