@@ -122,8 +122,8 @@ export default function Home() {
   const [footerTime, setFooterTime] = useState('')
   const [nightMode, setNightMode] = useState(false)
   const [newActivityCount, setNewActivityCount] = useState(0)
-  const [liguePhoto, setLiguePhoto] = useState('')
   const [liguePhotoPreview, setLiguePhotoPreview] = useState('')
+  const liguePhotoRef = useRef('') // Use ref for large base64 data to avoid re-renders
   const [activeSection, setActiveSection] = useState<'stats' | 'feed'>('stats')
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null)
   const [dbError, setDbError] = useState<string | null>(null)
@@ -167,7 +167,7 @@ export default function Home() {
     } catch (err: any) { setDbError(err?.message || 'Network error') } finally { setLoading(false) }
   }, [])
   useEffect(() => { fetchData() }, [fetchData])
-  useEffect(() => { const iv = setInterval(fetchData, 10000); return () => clearInterval(iv) }, [fetchData])
+  useEffect(() => { const iv = setInterval(fetchData, 30000); return () => clearInterval(iv) }, [fetchData])
   useEffect(() => { document.documentElement.classList.toggle('dark', darkMode || nightMode); localStorage.setItem('objetciu-dark-mode', String(darkMode)) }, [darkMode, nightMode])
   useEffect(() => { localStorage.setItem('objetciu-sound', String(soundEnabled)) }, [soundEnabled])
   useEffect(() => { audioRef.current = new Audio('/sounds/ding.mp3'); audioRef.current.volume = 0.3; return () => { audioRef.current = null } }, [])
@@ -195,7 +195,7 @@ export default function Home() {
     // Set pending increment and open mandatory ligue form
     setPendingIncrement({ personId: id, personName: pn, newCount: nc, prevCount: prev })
     setShowLigueForm(id)
-    setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); setLiguePhoto(''); setLiguePhotoPreview(''); setLigueFormError('')
+    setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); liguePhotoRef.current = ''; setLiguePhotoPreview(''); setLigueFormError('')
     playDing()
   }, [playDing])
   const confirmIncrement = useCallback(async () => {
@@ -211,7 +211,7 @@ export default function Home() {
     await fetch(`/api/candidates/${personId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lligatCount: newCount }) })
     const actData = await (await fetch('/api/activity')).json(); if (Array.isArray(actData)) setActivity(actData)
     // Save ligue details
-    await fetch('/api/ligues', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId, personName, nom: ligueNom, edat: ligueEdat, ubi: ligueUbi, rating: ligueRating, photoData: liguePhoto }) })
+    await fetch('/api/ligues', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId, personName, nom: ligueNom, edat: ligueEdat, ubi: ligueUbi, rating: ligueRating, photoData: liguePhotoRef.current }) })
     const ligData = await (await fetch('/api/ligues')).json(); if (Array.isArray(ligData)) setLigues(ligData)
     addToast(`${personName} +1! 💪`, 'success')
     // Check achievement
@@ -222,14 +222,14 @@ export default function Home() {
     }
     lastActionRef.current = { type: 'increment', personId, personName, prevCount }; setHasLastAction(true)
     setPendingIncrement(null)
-    setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); setLiguePhoto(''); setLiguePhotoPreview('')
-  }, [pendingIncrement, ligueNom, ligueEdat, ligueUbi, ligueRating, liguePhoto, addToast, playDing])
+    setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); liguePhotoRef.current = ''; setLiguePhotoPreview('')
+  }, [pendingIncrement, ligueNom, ligueEdat, ligueUbi, ligueRating, addToast, playDing])
   const cancelIncrement = useCallback(() => {
     if (!pendingIncrement) return
     const { personId, prevCount } = pendingIncrement
     setCandidates(p => p.map(c => c.id === personId ? { ...c, lligatCount: prevCount } : c))
     setPendingIncrement(null)
-    setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); setLiguePhoto(''); setLiguePhotoPreview(''); setLigueFormError('')
+    setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); liguePhotoRef.current = ''; setLiguePhotoPreview(''); setLigueFormError('')
     addToast('Desfés', 'info')
   }, [pendingIncrement, addToast])
   const decrement = useCallback((id: string) => {
@@ -274,11 +274,11 @@ export default function Home() {
     if (!showLigueForm) return; const c = candidates.find(x => x.id === showLigueForm); if (!c) return
     // If there's a pending increment, use confirmIncrement instead
     if (pendingIncrement) { await confirmIncrement(); return }
-    await fetch('/api/ligues', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId: c.id, personName: c.name, nom: ligueNom, edat: ligueEdat, ubi: ligueUbi, rating: ligueRating, photoData: liguePhoto }) })
+    await fetch('/api/ligues', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId: c.id, personName: c.name, nom: ligueNom, edat: ligueEdat, ubi: ligueUbi, rating: ligueRating, photoData: liguePhotoRef.current }) })
     const ligData = await (await fetch('/api/ligues')).json(); if (Array.isArray(ligData)) setLigues(ligData)
     addToast('Guardat! 📝', 'success')
-    setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); setLiguePhoto(''); setLiguePhotoPreview(''); setLigueFormError('')
-  }, [showLigueForm, candidates, ligueNom, ligueEdat, ligueUbi, ligueRating, liguePhoto, addToast, pendingIncrement, confirmIncrement])
+    setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); liguePhotoRef.current = ''; setLiguePhotoPreview(''); setLigueFormError('')
+  }, [showLigueForm, candidates, ligueNom, ligueEdat, ligueUbi, ligueRating, addToast, pendingIncrement, confirmIncrement])
   const deleteLigue = useCallback(async (id: string) => {
     await fetch(`/api/ligues?id=${id}`, { method: 'DELETE' }); setLigues(await (await fetch('/api/ligues')).json()); addToast('Lligada eliminada 🗑️', 'info'); setDeleteConfirmId(null)
   }, [addToast])
@@ -288,52 +288,124 @@ export default function Home() {
     setLigues(await (await fetch('/api/ligues')).json()); addToast('Editat! ✏️', 'success'); setEditingLigueId(null); setEditLigueNom(''); setEditLigueEdat(''); setEditLigueUbi(''); setEditLigueRating(0)
   }, [editingLigueId, editLigueNom, editLigueEdat, editLigueUbi, editLigueRating, addToast])
   const startLigueEdit = (l: LigueEntry) => { setEditingLigueId(l.id); setEditLigueNom(l.nom); setEditLigueEdat(l.edat); setEditLigueUbi(l.ubi); setEditLigueRating(l.rating) }
-  const skipLigue = useCallback(() => { if (pendingIncrement) { cancelIncrement(); return }; setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); setLiguePhoto(''); setLiguePhotoPreview(''); setLigueFormError('') }, [pendingIncrement, cancelIncrement])
-  const openLigueForm = (id: string) => { setLigueHintId(null); setShowLigueForm(id); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); setLiguePhoto(''); setLiguePhotoPreview(''); setPendingIncrement(null); setLigueFormError('') }
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const skipLigue = useCallback(() => { if (pendingIncrement) { cancelIncrement(); return }; setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); liguePhotoRef.current = ''; setLiguePhotoPreview(''); setLigueFormError('') }, [pendingIncrement, cancelIncrement])
+  const openLigueForm = (id: string) => { setLigueHintId(null); setShowLigueForm(id); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); liguePhotoRef.current = ''; setLiguePhotoPreview(''); setPendingIncrement(null); setLigueFormError('') }
+  // Read EXIF orientation from JPEG file (returns 1-8, or 1 if not found)
+  const getExifOrientation = (file: File): Promise<number> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        try {
+          const dv = new DataView(e.target?.result as ArrayBuffer)
+          // Check for JPEG SOI marker
+          if (dv.getUint16(0, false) !== 0xFFD8) { resolve(1); return }
+          let offset = 2
+          while (offset < dv.byteLength - 2) {
+            const marker = dv.getUint16(offset, false)
+            offset += 2
+            // APP1 marker (EXIF)
+            if (marker === 0xFFE1) {
+              const length = dv.getUint16(offset, false)
+              // Check for "Exif" string
+              if (dv.getUint32(offset + 2, false) === 0x45786966) { // "Exif"
+                // Skip to TIFF header
+                const tiffOffset = offset + 8
+                const littleEndian = dv.getUint16(tiffOffset, false) === 0x4949
+                const ifdOffset = dv.getUint32(tiffOffset + 4, littleEndian)
+                const tags = dv.getUint16(tiffOffset + ifdOffset, littleEndian)
+                for (let i = 0; i < tags; i++) {
+                  const tagOffset = tiffOffset + ifdOffset + 2 + i * 12
+                  if (tagOffset + 12 > dv.byteLength) break
+                  const tag = dv.getUint16(tagOffset, littleEndian)
+                  if (tag === 0x0112) { // Orientation tag
+                    const orientation = dv.getUint16(tagOffset + 8, littleEndian)
+                    resolve(orientation)
+                    return
+                  }
+                }
+              }
+              offset += length
+            } else if ((marker & 0xFF00) === 0xFF00) {
+              offset += dv.getUint16(offset, false)
+            } else {
+              break
+            }
+          }
+        } catch { /* ignore parse errors */ }
+        resolve(1)
+      }
+      reader.onerror = () => resolve(1)
+      // Only read first 64KB to find EXIF (much faster than reading entire file)
+      reader.readAsArrayBuffer(file.slice(0, 65536))
+    })
+  }
+
+  // Apply EXIF orientation transformation to canvas and draw image correctly
+  const drawImageWithOrientation = (ctx: CanvasRenderingContext2D, img: HTMLImageElement | ImageBitmap, w: number, h: number, orientation: number) => {
+    ctx.save()
+    ctx.translate(w / 2, h / 2)
+    switch (orientation) {
+      case 2: ctx.scale(-1, 1); break            // Flip horizontal
+      case 3: ctx.rotate(Math.PI); break          // Rotate 180°
+      case 4: ctx.scale(1, -1); break             // Flip vertical
+      case 5: ctx.rotate(Math.PI / 2); ctx.scale(-1, 1); break  // Rotate 90° CW + flip
+      case 6: ctx.rotate(Math.PI / 2); break      // Rotate 90° CW
+      case 7: ctx.rotate(-Math.PI / 2); ctx.scale(-1, 1); break // Rotate 90° CCW + flip
+      case 8: ctx.rotate(-Math.PI / 2); break     // Rotate 90° CCW
+    }
+    ctx.drawImage(img, -w / 2, -h / 2, w, h)
+    ctx.restore()
+  }
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    // Use createImageBitmap with imageOrientation to respect EXIF orientation (fixes selfie mirror issue)
-    if (typeof createImageBitmap === 'function') {
-      createImageBitmap(file, { imageOrientation: 'from-image' }).then(bitmap => {
-        const canvas = document.createElement('canvas')
-        let w = bitmap.width, h = bitmap.height
-        const maxW = 800
-        if (w > maxW) { h = (h * maxW) / w; w = maxW }
-        canvas.width = w; canvas.height = h
-        const ctx = canvas.getContext('2d')!
+    try {
+      // Step 1: Read EXIF orientation from file bytes
+      const orientation = await getExifOrientation(file)
+      // Step 2: Load the image
+      const bitmap = await createImageBitmap(file)
+      // Step 3: Calculate dimensions considering rotation
+      const isRotated = orientation >= 5 && orientation <= 8
+      const srcW = isRotated ? bitmap.height : bitmap.width
+      const srcH = isRotated ? bitmap.width : bitmap.height
+      let w = srcW, h = srcH
+      const maxW = 800
+      if (w > maxW) { h = (h * maxW) / w; w = maxW }
+      // Step 4: Create canvas and draw with correct orientation
+      const canvas = document.createElement('canvas')
+      canvas.width = w; canvas.height = h
+      const ctx = canvas.getContext('2d')!
+      if (orientation === 1) {
         ctx.drawImage(bitmap, 0, 0, w, h)
-        bitmap.close()
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
-        setLiguePhoto(dataUrl)
-        setLiguePhotoPreview(dataUrl)
-      }).catch(() => {
-        // Fallback: try the old method if createImageBitmap fails
-        processImageFallback(file)
-      })
-    } else {
-      processImageFallback(file)
-    }
-  }
-  const processImageFallback = (file: File) => {
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      const img = new Image()
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        let w = img.width, h = img.height
-        const maxW = 800
-        if (w > maxW) { h = (h * maxW) / w; w = maxW }
-        canvas.width = w; canvas.height = h
-        const ctx = canvas.getContext('2d')!
-        ctx.drawImage(img, 0, 0, w, h)
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
-        setLiguePhoto(dataUrl)
-        setLiguePhotoPreview(dataUrl)
+      } else {
+        drawImageWithOrientation(ctx, bitmap, w, h, orientation)
       }
-      img.src = ev.target?.result as string
+      bitmap.close()
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
+      liguePhotoRef.current = dataUrl
+      setLiguePhotoPreview(dataUrl)
+    } catch {
+      // Fallback: use FileReader + Image
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          let w = img.width, h = img.height
+          const maxW = 800
+          if (w > maxW) { h = (h * maxW) / w; w = maxW }
+          canvas.width = w; canvas.height = h
+          const ctx = canvas.getContext('2d')!
+          ctx.drawImage(img, 0, 0, w, h)
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
+          liguePhotoRef.current = dataUrl
+          setLiguePhotoPreview(dataUrl)
+        }
+        img.src = ev.target?.result as string
+      }
+      reader.readAsDataURL(file)
     }
-    reader.readAsDataURL(file)
   }
   // Derived
   const sorted = useMemo(() => [...candidates].sort((a, b) => { const ae = EXEMPT_IDS.has(a.id) ? 1 : 0; const be = EXEMPT_IDS.has(b.id) ? 1 : 0; if (ae !== be) return ae - be; return b.lligatCount - a.lligatCount || a.order - b.order }), [candidates])
@@ -345,9 +417,36 @@ export default function Home() {
   const lastActTime = activity.length > 0 ? timeAgo(activity[0].createdAt) : null
   // Set of candidate IDs that currently have lligatCount > 0 — used to filter stats
   const activeCandidateIds = useMemo(() => new Set(candidates.filter(c => c.lligatCount > 0).map(c => c.id)), [candidates])
-  const getAvgRating = (pid: string) => { if (!activeCandidateIds.has(pid)) return 0; const pl = ligues.filter(l => l.personId === pid && l.rating > 0); return pl.length === 0 ? 0 : pl.reduce((s, l) => s + l.rating, 0) / pl.length }
-  const getStreak = (pid: string) => { const pa = activity.filter(a => a.personId === pid).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); let s = 0; for (const e of pa) { if (e.action === 'increment') s++; else break } return s }
-  const isCaliente = (pid: string) => { const h = Date.now() - 3600000; return activity.some(a => a.personId === pid && a.action === 'increment' && new Date(a.createdAt).getTime() > h) }
+  // Memoized rating map to avoid recalculating per candidate on every render
+  const avgRatingMap = useMemo(() => {
+    const m: Record<string, number> = {}
+    candidates.forEach(c => {
+      if (!activeCandidateIds.has(c.id)) { m[c.id] = 0; return }
+      const pl = ligues.filter(l => l.personId === c.id && l.rating > 0)
+      m[c.id] = pl.length === 0 ? 0 : pl.reduce((s, l) => s + l.rating, 0) / pl.length
+    })
+    return m
+  }, [candidates, ligues, activeCandidateIds])
+  const getAvgRating = useCallback((pid: string) => avgRatingMap[pid] ?? 0, [avgRatingMap])
+  // Memoized streak map
+  const streakMap = useMemo(() => {
+    const m: Record<string, number> = {}
+    candidates.forEach(c => {
+      const pa = activity.filter(a => a.personId === c.id).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      let s = 0; for (const e of pa) { if (e.action === 'increment') s++; else break }
+      m[c.id] = s
+    })
+    return m
+  }, [candidates, activity])
+  const getStreak = useCallback((pid: string) => streakMap[pid] ?? 0, [streakMap])
+  // Memoized caliente set
+  const calienteIds = useMemo(() => {
+    const h = Date.now() - 3600000
+    const s = new Set<string>()
+    activity.forEach(a => { if (a.action === 'increment' && new Date(a.createdAt).getTime() > h) s.add(a.personId) })
+    return s
+  }, [activity])
+  const isCaliente = useCallback((pid: string) => calienteIds.has(pid), [calienteIds])
   const rivalries = useMemo(() => {
     const s = nonExempt.filter(c => c.lligatCount > 0).sort((a, b) => b.lligatCount - a.lligatCount)
     const pairs: { a: Candidate; b: Candidate; diff: number }[] = []
@@ -1282,7 +1381,7 @@ export default function Home() {
                         {liguePhotoPreview ? (
                           <div className="relative inline-block">
                             <img src={liguePhotoPreview} alt="Vista prèvia" className="w-28 h-28 object-cover rounded-xl border-2 border-pink-200 dark:border-pink-800 shadow-md" />
-                            <button onClick={() => { setLiguePhoto(''); setLiguePhotoPreview('') }} aria-label="Treure foto" className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md hover:bg-red-600 transition-colors"><X className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => { liguePhotoRef.current = ''; setLiguePhotoPreview('') }} aria-label="Treure foto" className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md hover:bg-red-600 transition-colors"><X className="w-3.5 h-3.5" /></button>
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
