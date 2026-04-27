@@ -735,3 +735,27 @@ Stage Summary:
 - All stats sections now properly filter out candidates with lligatCount === 0
 - Photo uploads now respect EXIF orientation - selfies no longer inverted
 - Code clean, deployed to Vercel via GitHub push
+
+---
+Task ID: 23
+Agent: Main Agent
+Task: Fix selfie photo inversion + Improve app performance
+
+Work Log:
+- **EXIF Photo Orientation Fix (Round 2)**: Previous fix using createImageBitmap with imageOrientation option didnt work on mobile browsers. Rewrote with proper EXIF binary parsing:
+  - Added `getExifOrientation(file)`: Reads JPEG EXIF orientation tag (1-8) from file bytes using DataView. Only reads first 64KB for performance.
+  - Added `drawImageWithOrientation(ctx, img, w, h, orientation)`: Applies correct canvas transforms (translate, rotate, scale) based on EXIF orientation value. Handles all 8 orientation cases (normal, flip-H, rotate-180, flip-V, rotate-90+flip, rotate-90, rotate-270+flip, rotate-270).
+  - Updated `handleImageSelect`: Now reads EXIF first, then loads image with createImageBitmap (without imageOrientation option), calculates correct dimensions for rotated images (orientation 5-8 swap w/h), and draws with proper transforms.
+  - This fixes front-camera selfie mirroring: EXIF orientation=2 means flip-horizontal, which is what front cameras store.
+- **Performance Improvements**:
+  - Polling interval: Changed from 10s to 30s (reduces API calls by 3x)
+  - `liguePhoto` state → `liguePhotoRef` (useRef): Large base64 photo data no longer triggers re-renders of the entire component. Only `liguePhotoPreview` stays in state for the UI preview.
+  - Memoized `getAvgRating`, `getStreak`, `isCaliente`: Converted from inline functions that recalculate on every render to useMemo maps + useCallback accessors. Pre-computes values for all candidates once per data change instead of per-render per-candidate.
+  - Removed `liguePhoto` from useCallback dependency arrays (confirmIncrement, submitLigueDetails) since its now a ref.
+- **Lint**: Passes clean
+- **Pushed to GitHub**: commit c168638
+
+Stage Summary:
+- Selfie photos now properly oriented via EXIF binary parsing + canvas transforms (all 8 orientations handled)
+- Performance significantly improved: 3x fewer API polls, no re-renders from photo data, memoized stat calculations
+- Code clean, deployed to Vercel
