@@ -759,3 +759,29 @@ Stage Summary:
 - Selfie photos now properly oriented via EXIF binary parsing + canvas transforms (all 8 orientations handled)
 - Performance significantly improved: 3x fewer API polls, no re-renders from photo data, memoized stat calculations
 - Code clean, deployed to Vercel
+
+---
+Task ID: 24
+Agent: Main Agent
+Task: Fix sideways photo rotation (double EXIF) + Performance overhaul
+
+Work Log:
+- **Photo Rotation Fix (Round 3)**: Root cause identified - `createImageBitmap(file)` already applies EXIF orientation by default, but the manual EXIF rotation code was applying it AGAIN on top, causing double rotation (photos turned 90° sideways).
+  - Removed ALL manual EXIF handling code (getExifOrientation, drawImageWithOrientation functions)
+  - Simplified handleImageSelect to use URL.createObjectURL + Image + canvas (simplest, most reliable approach)
+  - Modern browsers apply EXIF orientation automatically when loading images and drawing to canvas
+  - Added CSS `image-orientation: from-image` rule for all <img> elements as extra safety
+  - Added `capture="environment"` to file input (defaults to back camera which has no mirroring issue)
+  - Uses img.naturalWidth/naturalHeight for correct dimension calculation
+- **Performance Improvements (Round 2)**:
+  - Toasts system: Moved from useState to useRef + version counter. Each toast add/remove no longer triggers full page re-render, only the toast container re-renders.
+  - fetchData optimization: Added equality checks in setState callbacks - if candidates havent changed (same IDs, same lligatCount), return prev to skip re-render. Same for activity and ligues arrays (length check).
+  - Removed unused toastOutIds ref
+  - Net code reduction: -80 lines (from 1415 to ~1335)
+- **Lint**: Passes clean
+- **Pushed to GitHub**: commit f545532
+
+Stage Summary:
+- Photo rotation fixed: no more double EXIF application, photos display correctly
+- Performance improved: toasts dont re-render entire page, polling skips unchanged data
+- Code simplified and reduced by 80 lines
