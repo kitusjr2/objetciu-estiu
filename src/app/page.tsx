@@ -87,7 +87,9 @@ export default function Home() {
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [activity, setActivity] = useState<ActivityEntry[]>([])
   const [ligues, setLigues] = useState<LigueEntry[]>([])
-  const [toasts, setToasts] = useState<{ id: number; message: string; type: string }[]>([])
+  // Toasts stored in ref to avoid re-rendering the entire page for every toast
+  const [toastVersion, setToastVersion] = useState(0)
+  const toastsRef = useRef<{ id: number; message: string; type: string }[]>([])
   const [showConfetti, setShowConfetti] = useState(false)
   const [darkMode, setDarkMode] = useState(() => { if (typeof window === 'undefined') return false; const stored = localStorage.getItem('objetciu-dark-mode'); if (stored !== null) return stored === 'true'; return window.matchMedia('(prefers-color-scheme: dark)').matches })
   const [showTimeline, setShowTimeline] = useState(false)
@@ -139,7 +141,6 @@ export default function Home() {
   const lastActionRef = useRef<LastAction | null>(null)
   const ligueHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prevTotalRef = useRef(0)
-  const toastOutIds = useRef<Set<number>>(new Set())
   const fetchData = useCallback(async () => {
     try {
       const [c, a, l] = await Promise.all([fetch('/api/candidates'), fetch('/api/activity'), fetch('/api/ligues')])
@@ -149,10 +150,19 @@ export default function Home() {
       if (cd?.error) errors.push(`Candidates: ${cd.error} — ${cd.detail || ''}`)
       if (ad?.error) errors.push(`Activity: ${ad.error} — ${ad.detail || ''}`)
       if (ld?.error) errors.push(`Ligues: ${ld.error} — ${ld.detail || ''}`)
-      // Set whatever data we got (even if partial)
-      if (Array.isArray(cd)) setCandidates(cd)
-      if (Array.isArray(ad)) setActivity(ad)
-      if (Array.isArray(ld)) setLigues(ld)
+      // Only update state if data actually changed (reduces re-renders from polling)
+      if (Array.isArray(cd)) setCandidates(prev => {
+        if (prev.length === cd.length && prev.every((p, i) => p.id === cd[i].id && p.lligatCount === cd[i].lligatCount)) return prev
+        return cd
+      })
+      if (Array.isArray(ad)) setActivity(prev => {
+        if (prev.length === ad.length) return prev
+        return ad
+      })
+      if (Array.isArray(ld)) setLigues(prev => {
+        if (prev.length === ld.length) return prev
+        return ld
+      })
       // Show error only if ALL three failed, or if candidates failed
       if (errors.length > 0 && (!Array.isArray(cd) || errors.length >= 2)) {
         setDbError(errors.join(' | '))
@@ -173,7 +183,7 @@ export default function Home() {
   useEffect(() => { audioRef.current = new Audio('/sounds/ding.mp3'); audioRef.current.volume = 0.3; return () => { audioRef.current = null } }, [])
 
   const playDing = useCallback(() => { if (soundEnabled && audioRef.current) { audioRef.current.currentTime = 0; audioRef.current.play().catch(() => {}) } }, [soundEnabled])
-  const addToast = useCallback((msg: string, type = 'info') => { const id = ++toastId.current; setToasts(p => [...p, { id, message: msg, type }]); setTimeout(() => { toastOutIds.current.add(id); setToasts(p => p.map(t => t.id === id ? { ...t, type: t.type + ' out' } : t)); setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 300) }, 2700) }, [])
+  const addToast = useCallback((msg: string, type = 'info') => { const id = ++toastId.current; toastsRef.current = [...toastsRef.current, { id, message: msg, type }]; setToastVersion(v => v + 1); setTimeout(() => { toastsRef.current = toastsRef.current.map(t => t.id === id ? { ...t, type: t.type + ' out' } : t); setToastVersion(v => v + 1); setTimeout(() => { toastsRef.current = toastsRef.current.filter(t => t.id !== id); setToastVersion(v => v + 1) }, 300) }, 2700) }, [])
   useEffect(() => {
     const top = [...candidates].filter(c => !EXEMPT_IDS.has(c.id)).sort((a, b) => b.lligatCount - a.lligatCount)[0]
     if (top && top.lligatCount > 0 && prevTopId.current !== null && prevTopId.current !== top.id) {
@@ -290,122 +300,28 @@ export default function Home() {
   const startLigueEdit = (l: LigueEntry) => { setEditingLigueId(l.id); setEditLigueNom(l.nom); setEditLigueEdat(l.edat); setEditLigueUbi(l.ubi); setEditLigueRating(l.rating) }
   const skipLigue = useCallback(() => { if (pendingIncrement) { cancelIncrement(); return }; setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); liguePhotoRef.current = ''; setLiguePhotoPreview(''); setLigueFormError('') }, [pendingIncrement, cancelIncrement])
   const openLigueForm = (id: string) => { setLigueHintId(null); setShowLigueForm(id); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); liguePhotoRef.current = ''; setLiguePhotoPreview(''); setPendingIncrement(null); setLigueFormError('') }
-  // Read EXIF orientation from JPEG file (returns 1-8, or 1 if not found)
-  const getExifOrientation = (file: File): Promise<number> => {
-    return new Promise((resolve) => {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        try {
-          const dv = new DataView(e.target?.result as ArrayBuffer)
-          // Check for JPEG SOI marker
-          if (dv.getUint16(0, false) !== 0xFFD8) { resolve(1); return }
-          let offset = 2
-          while (offset < dv.byteLength - 2) {
-            const marker = dv.getUint16(offset, false)
-            offset += 2
-            // APP1 marker (EXIF)
-            if (marker === 0xFFE1) {
-              const length = dv.getUint16(offset, false)
-              // Check for "Exif" string
-              if (dv.getUint32(offset + 2, false) === 0x45786966) { // "Exif"
-                // Skip to TIFF header
-                const tiffOffset = offset + 8
-                const littleEndian = dv.getUint16(tiffOffset, false) === 0x4949
-                const ifdOffset = dv.getUint32(tiffOffset + 4, littleEndian)
-                const tags = dv.getUint16(tiffOffset + ifdOffset, littleEndian)
-                for (let i = 0; i < tags; i++) {
-                  const tagOffset = tiffOffset + ifdOffset + 2 + i * 12
-                  if (tagOffset + 12 > dv.byteLength) break
-                  const tag = dv.getUint16(tagOffset, littleEndian)
-                  if (tag === 0x0112) { // Orientation tag
-                    const orientation = dv.getUint16(tagOffset + 8, littleEndian)
-                    resolve(orientation)
-                    return
-                  }
-                }
-              }
-              offset += length
-            } else if ((marker & 0xFF00) === 0xFF00) {
-              offset += dv.getUint16(offset, false)
-            } else {
-              break
-            }
-          }
-        } catch { /* ignore parse errors */ }
-        resolve(1)
-      }
-      reader.onerror = () => resolve(1)
-      // Only read first 64KB to find EXIF (much faster than reading entire file)
-      reader.readAsArrayBuffer(file.slice(0, 65536))
-    })
-  }
-
-  // Apply EXIF orientation transformation to canvas and draw image correctly
-  const drawImageWithOrientation = (ctx: CanvasRenderingContext2D, img: HTMLImageElement | ImageBitmap, w: number, h: number, orientation: number) => {
-    ctx.save()
-    ctx.translate(w / 2, h / 2)
-    switch (orientation) {
-      case 2: ctx.scale(-1, 1); break            // Flip horizontal
-      case 3: ctx.rotate(Math.PI); break          // Rotate 180°
-      case 4: ctx.scale(1, -1); break             // Flip vertical
-      case 5: ctx.rotate(Math.PI / 2); ctx.scale(-1, 1); break  // Rotate 90° CW + flip
-      case 6: ctx.rotate(Math.PI / 2); break      // Rotate 90° CW
-      case 7: ctx.rotate(-Math.PI / 2); ctx.scale(-1, 1); break // Rotate 90° CCW + flip
-      case 8: ctx.rotate(-Math.PI / 2); break     // Rotate 90° CCW
-    }
-    ctx.drawImage(img, -w / 2, -h / 2, w, h)
-    ctx.restore()
-  }
-
-  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    try {
-      // Step 1: Read EXIF orientation from file bytes
-      const orientation = await getExifOrientation(file)
-      // Step 2: Load the image
-      const bitmap = await createImageBitmap(file)
-      // Step 3: Calculate dimensions considering rotation
-      const isRotated = orientation >= 5 && orientation <= 8
-      const srcW = isRotated ? bitmap.height : bitmap.width
-      const srcH = isRotated ? bitmap.width : bitmap.height
-      let w = srcW, h = srcH
-      const maxW = 800
-      if (w > maxW) { h = (h * maxW) / w; w = maxW }
-      // Step 4: Create canvas and draw with correct orientation
+    // Use URL.createObjectURL for fast loading (avoids reading entire file into memory as base64)
+    // Modern browsers apply EXIF orientation automatically when drawing to canvas
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => {
       const canvas = document.createElement('canvas')
+      let w = img.naturalWidth, h = img.naturalHeight
+      const maxW = 800
+      if (w > maxW) { h = Math.round((h * maxW) / w); w = maxW }
       canvas.width = w; canvas.height = h
       const ctx = canvas.getContext('2d')!
-      if (orientation === 1) {
-        ctx.drawImage(bitmap, 0, 0, w, h)
-      } else {
-        drawImageWithOrientation(ctx, bitmap, w, h, orientation)
-      }
-      bitmap.close()
+      ctx.drawImage(img, 0, 0, w, h)
+      URL.revokeObjectURL(url)
       const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
       liguePhotoRef.current = dataUrl
       setLiguePhotoPreview(dataUrl)
-    } catch {
-      // Fallback: use FileReader + Image
-      const reader = new FileReader()
-      reader.onload = (ev) => {
-        const img = new Image()
-        img.onload = () => {
-          const canvas = document.createElement('canvas')
-          let w = img.width, h = img.height
-          const maxW = 800
-          if (w > maxW) { h = (h * maxW) / w; w = maxW }
-          canvas.width = w; canvas.height = h
-          const ctx = canvas.getContext('2d')!
-          ctx.drawImage(img, 0, 0, w, h)
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
-          liguePhotoRef.current = dataUrl
-          setLiguePhotoPreview(dataUrl)
-        }
-        img.src = ev.target?.result as string
-      }
-      reader.readAsDataURL(file)
     }
+    img.onerror = () => { URL.revokeObjectURL(url) }
+    img.src = url
   }
   // Derived
   const sorted = useMemo(() => [...candidates].sort((a, b) => { const ae = EXEMPT_IDS.has(a.id) ? 1 : 0; const be = EXEMPT_IDS.has(b.id) ? 1 : 0; if (ae !== be) return ae - be; return b.lligatCount - a.lligatCount || a.order - b.order }), [candidates])
@@ -555,7 +471,7 @@ export default function Home() {
         {showConfetti && <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">{Array.from({ length: 50 }).map((_, i) => <div key={i} className="absolute animate-confetti" style={{ left: `${Math.random()*100}%`, top: '-10px', width: 8+Math.random()*8, height: 8+Math.random()*8, backgroundColor: ['#f97316','#ef4444','#ec4899','#eab308','#22c55e','#a855f7','#06b6d4'][i%7], borderRadius: Math.random()>0.5?'50%':'2px', '--confetti-delay': `${Math.random()*1.5}s`, '--confetti-duration': `${2.5+Math.random()*2}s` } as React.CSSProperties} />)}</div>}
 
         {/* Toasts */}
-        <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">{toasts.map(t => {
+        <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">{toastsRef.current.map(t => {
           const isOut = t.type.endsWith(' out'); const baseType = t.type.replace(' out', '')
           return (
           <div key={t.id} className={`px-4 py-3 rounded-2xl shadow-2xl text-sm font-medium flex items-center gap-2 backdrop-blur-md border border-white/20 ${isOut?'animate-toast-out':'animate-in fade-in slide-in-from-right'} ${baseType==='success'?'bg-green-500/90 text-white':baseType==='warning'?'bg-amber-500/90 text-white':'bg-orange-500/90 text-white'}`}>
@@ -1388,7 +1304,7 @@ export default function Home() {
                             <label className="flex items-center justify-center gap-2 flex-1 h-14 rounded-xl border-2 border-dashed border-pink-200 dark:border-pink-800/50 bg-pink-50/50 dark:bg-pink-900/10 cursor-pointer hover:bg-pink-100/50 dark:hover:bg-pink-900/20 transition-all">
                               <Camera className="w-4 h-4 text-pink-400" />
                               <span className="text-sm text-pink-500 font-medium">Pujar foto</span>
-                              <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+                              <input type="file" accept="image/*" capture="environment" onChange={handleImageSelect} className="hidden" />
                             </label>
                             {isMandatory && (
                               <Button variant="outline" size="sm" onClick={() => { /* Allow saving without photo */ }} className="text-xs h-14 border-pink-200 dark:border-pink-800 text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/20">
