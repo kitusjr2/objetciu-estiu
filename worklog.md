@@ -718,3 +718,20 @@ Stage Summary:
 - General improvements (bigger search, taller leaderboard, section title sizes)
 - No logic changes - all functionality preserved
 - Lint clean, app renders correctly
+
+---
+Task ID: 22
+Agent: Main Agent
+Task: Fix stats inconsistency (0-point candidates showing in stats) + Fix EXIF photo inversion on upload
+
+Work Log:
+- **Stats Inconsistency Fix**: User reported "Pol" shows 0 punts but statistics show 2 ligues. Root cause: ligue entries and activity records exist in DB even when candidate lligatCount is 0 (after decrement/reset). All stats computations used raw data without checking candidate points.
+  - Added `activeCandidateIds` useMemo set filtering candidates with lligatCount > 0
+  - Updated all stats computations: getAvgRating, locationStats, weeklyStats, recentLigues, todayStats, hallOfFame, heatmap, Speed/Ritme, Top Valoracio, FEED section
+- **EXIF Photo Orientation Fix**: Selfies appeared inverted. Replaced FileReader+Image+canvas with createImageBitmap(file, { imageOrientation: "from-image" }) which auto-handles EXIF. Added fallback for unsupported browsers.
+- Lint passes clean, pushed to GitHub (commit 6e24ec0)
+
+Stage Summary:
+- All stats sections now properly filter out candidates with lligatCount === 0
+- Photo uploads now respect EXIF orientation - selfies no longer inverted
+- Code clean, deployed to Vercel via GitHub push
