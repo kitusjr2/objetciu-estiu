@@ -785,3 +785,30 @@ Stage Summary:
 - Photo rotation fixed: no more double EXIF application, photos display correctly
 - Performance improved: toasts dont re-render entire page, polling skips unchanged data
 - Code simplified and reduced by 80 lines
+
+---
+Task ID: 25
+Agent: Main Agent
+Task: Fix photo mirror/inversion issue + Fix slow upload & duplicate submissions
+
+Work Log:
+- **Photo Mirror Fix (Round 4)**: User clearly explained the issue: front camera selfie preview shows a mirror image (what you expect), but the uploaded photo is the "real" (unmirrored) version, making the person look "inverted" to themselves. This is NOT a rotation issue — it's a horizontal mirror issue.
+  - Changed `handleImageSelect` to use FileReader.readAsDataURL (preserves EXIF), then draw to canvas with horizontal mirror (ctx.translate(w,0) + ctx.scale(-1,1))
+  - The mirrored canvas output matches what the user saw in the camera preview
+  - Changed file input `capture="environment"` → `capture="user"` to prefer front camera for selfies
+  - Preview shows immediately from raw file, then updates with mirrored+compressed version
+- **Slow Upload Fix**: User reported "tarda bastante en subirse" and clicking save multiple times creates duplicate entries.
+  - Added `isSubmitting` state to prevent duplicate submissions (button disabled during save)
+  - Implemented optimistic UI: modal closes IMMEDIATELY when user clicks Save, API calls run in background
+  - Changed from sequential to parallel API calls: `Promise.all([PATCH candidate, POST ligues])` instead of awaiting each one
+  - Removed redundant GET refreshes after save — uses `fetchData()` for background refresh instead
+  - Added retry-once logic on API failure
+  - Both "Guardar" buttons (mandatory + optional) show loading spinner ("Guardant...") when submitting
+- **Lint**: Passes clean
+
+Stage Summary:
+- Photo mirror issue fixed: stored images now match camera preview (horizontally mirrored for selfies)
+- Upload is now instant (optimistic UI): modal closes immediately, API runs in background
+- Duplicate submissions prevented with isSubmitting guard
+- Parallel API calls make actual save ~2x faster
+- Loading spinner on save buttons for user feedback

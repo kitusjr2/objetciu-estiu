@@ -133,6 +133,7 @@ export default function Home() {
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
   const [feedFilterId, setFeedFilterId] = useState<string | null>(null)
   const [ligueFormError, setLigueFormError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const lastActivityLen = useRef(0)
   const prevRanks = useRef<Record<string, number>>({})
   const toastId = useRef(0)
@@ -209,7 +210,7 @@ export default function Home() {
     playDing()
   }, [playDing])
   const confirmIncrement = useCallback(async () => {
-    if (!pendingIncrement) return
+    if (!pendingIncrement || isSubmitting) return
     const { personId, personName, newCount, prevCount } = pendingIncrement
     // Validate required fields
     if (!ligueNom.trim() || !ligueEdat.trim() || !ligueUbi.trim() || ligueRating === 0) {
@@ -217,12 +218,11 @@ export default function Home() {
       return
     }
     setLigueFormError('')
-    // Save count to API
-    await fetch(`/api/candidates/${personId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lligatCount: newCount }) })
-    const actData = await (await fetch('/api/activity')).json(); if (Array.isArray(actData)) setActivity(actData)
-    // Save ligue details
-    await fetch('/api/ligues', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId, personName, nom: ligueNom, edat: ligueEdat, ubi: ligueUbi, rating: ligueRating, photoData: liguePhotoRef.current }) })
-    const ligData = await (await fetch('/api/ligues')).json(); if (Array.isArray(ligData)) setLigues(ligData)
+    setIsSubmitting(true)
+    // Close modal IMMEDIATELY (optimistic UI — feels instant)
+    const photoData = liguePhotoRef.current
+    setPendingIncrement(null)
+    setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); liguePhotoRef.current = ''; setLiguePhotoPreview('')
     addToast(`${personName} +1! 💪`, 'success')
     // Check achievement
     const newAchievement = ACHIEVEMENTS.find(a => a.min === newCount)
@@ -231,9 +231,26 @@ export default function Home() {
       setShowConfetti(true); setTimeout(() => setShowConfetti(false), 5000)
     }
     lastActionRef.current = { type: 'increment', personId, personName, prevCount }; setHasLastAction(true)
-    setPendingIncrement(null)
-    setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); liguePhotoRef.current = ''; setLiguePhotoPreview('')
-  }, [pendingIncrement, ligueNom, ligueEdat, ligueUbi, ligueRating, addToast, playDing])
+    // Run all API calls in parallel (much faster than sequential)
+    try {
+      await Promise.all([
+        fetch(`/api/candidates/${personId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lligatCount: newCount }) }),
+        fetch('/api/ligues', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId, personName, nom: ligueNom, edat: ligueEdat, ubi: ligueUbi, rating: ligueRating, photoData }) }),
+      ])
+      // Refresh data in background after save
+      fetchData()
+    } catch (err) {
+      addToast('Error guardant, es tornarà a intentar', 'info')
+      // Retry once
+      await Promise.all([
+        fetch(`/api/candidates/${personId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lligatCount: newCount }) }),
+        fetch('/api/ligues', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId, personName, nom: ligueNom, edat: ligueEdat, ubi: ligueUbi, rating: ligueRating, photoData }) }),
+      ])
+      fetchData()
+    } finally {
+      setIsSubmitting(false)
+    }
+  }, [pendingIncrement, isSubmitting, ligueNom, ligueEdat, ligueUbi, ligueRating, addToast, playDing, fetchData])
   const cancelIncrement = useCallback(() => {
     if (!pendingIncrement) return
     const { personId, prevCount } = pendingIncrement
@@ -281,14 +298,22 @@ export default function Home() {
     navigator.clipboard.writeText(text).then(() => addToast('Copiat!', 'success')).catch(() => { setShareText(text); setShowShareModal(true) })
   }, [candidates, addToast])
   const submitLigueDetails = useCallback(async () => {
-    if (!showLigueForm) return; const c = candidates.find(x => x.id === showLigueForm); if (!c) return
+    if (!showLigueForm || isSubmitting) return; const c = candidates.find(x => x.id === showLigueForm); if (!c) return
     // If there's a pending increment, use confirmIncrement instead
     if (pendingIncrement) { await confirmIncrement(); return }
-    await fetch('/api/ligues', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId: c.id, personName: c.name, nom: ligueNom, edat: ligueEdat, ubi: ligueUbi, rating: ligueRating, photoData: liguePhotoRef.current }) })
-    const ligData = await (await fetch('/api/ligues')).json(); if (Array.isArray(ligData)) setLigues(ligData)
+    setIsSubmitting(true)
+    const photoData = liguePhotoRef.current
+    const nom = ligueNom, edat = ligueEdat, ubi = ligueUbi, rating = ligueRating
+    // Close modal immediately (optimistic UI)
+    setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); liguePhotoRef.current = ''; setLiguePhotoPreview('')
     addToast('Guardat! 📝', 'success')
-    setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); liguePhotoRef.current = ''; setLiguePhotoPreview(''); setLigueFormError('')
-  }, [showLigueForm, candidates, ligueNom, ligueEdat, ligueUbi, ligueRating, addToast, pendingIncrement, confirmIncrement])
+    try {
+      await fetch('/api/ligues', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId: c.id, personName: c.name, nom, edat, ubi, rating, photoData }) })
+      fetchData()
+    } finally {
+      setIsSubmitting(false)
+    }
+  }, [showLigueForm, candidates, ligueNom, ligueEdat, ligueUbi, ligueRating, addToast, pendingIncrement, confirmIncrement, isSubmitting, fetchData])
   const deleteLigue = useCallback(async (id: string) => {
     await fetch(`/api/ligues?id=${id}`, { method: 'DELETE' }); setLigues(await (await fetch('/api/ligues')).json()); addToast('Lligada eliminada 🗑️', 'info'); setDeleteConfirmId(null)
   }, [addToast])
@@ -303,25 +328,35 @@ export default function Home() {
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    // Use URL.createObjectURL for fast loading (avoids reading entire file into memory as base64)
-    // Modern browsers apply EXIF orientation automatically when drawing to canvas
-    const url = URL.createObjectURL(file)
-    const img = new Image()
-    img.onload = () => {
-      const canvas = document.createElement('canvas')
-      let w = img.naturalWidth, h = img.naturalHeight
-      const maxW = 800
-      if (w > maxW) { h = Math.round((h * maxW) / w); w = maxW }
-      canvas.width = w; canvas.height = h
-      const ctx = canvas.getContext('2d')!
-      ctx.drawImage(img, 0, 0, w, h)
-      URL.revokeObjectURL(url)
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.7)
-      liguePhotoRef.current = dataUrl
+    // Read the raw file as base64 directly — preserves EXIF orientation data
+    // Then draw to canvas with horizontal mirror so the stored image matches
+    // the camera preview (front camera shows a mirror, users expect the same result)
+    const reader = new FileReader()
+    reader.onload = () => {
+      const dataUrl = reader.result as string
+      // Set preview immediately from raw file (browser respects EXIF for display)
       setLiguePhotoPreview(dataUrl)
+      // Now process through canvas: resize + mirror to match camera preview
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let w = img.naturalWidth, h = img.naturalHeight
+        const maxW = 800
+        if (w > maxW) { h = Math.round((h * maxW) / w); w = maxW }
+        canvas.width = w; canvas.height = h
+        const ctx = canvas.getContext('2d')!
+        // Mirror horizontally so the photo matches the camera preview
+        // (front camera shows a mirror image; without this the saved photo looks "inverted")
+        ctx.translate(w, 0)
+        ctx.scale(-1, 1)
+        ctx.drawImage(img, 0, 0, w, h)
+        const mirrored = canvas.toDataURL('image/jpeg', 0.7)
+        liguePhotoRef.current = mirrored
+        setLiguePhotoPreview(mirrored)
+      }
+      img.src = dataUrl
     }
-    img.onerror = () => { URL.revokeObjectURL(url) }
-    img.src = url
+    reader.readAsDataURL(file)
   }
   // Derived
   const sorted = useMemo(() => [...candidates].sort((a, b) => { const ae = EXEMPT_IDS.has(a.id) ? 1 : 0; const be = EXEMPT_IDS.has(b.id) ? 1 : 0; if (ae !== be) return ae - be; return b.lligatCount - a.lligatCount || a.order - b.order }), [candidates])
@@ -1304,7 +1339,7 @@ export default function Home() {
                             <label className="flex items-center justify-center gap-2 flex-1 h-14 rounded-xl border-2 border-dashed border-pink-200 dark:border-pink-800/50 bg-pink-50/50 dark:bg-pink-900/10 cursor-pointer hover:bg-pink-100/50 dark:hover:bg-pink-900/20 transition-all">
                               <Camera className="w-4 h-4 text-pink-400" />
                               <span className="text-sm text-pink-500 font-medium">Pujar foto</span>
-                              <input type="file" accept="image/*" capture="environment" onChange={handleImageSelect} className="hidden" />
+                              <input type="file" accept="image/*" capture="user" onChange={handleImageSelect} className="hidden" />
                             </label>
                             {isMandatory && (
                               <Button variant="outline" size="sm" onClick={() => { /* Allow saving without photo */ }} className="text-xs h-14 border-pink-200 dark:border-pink-800 text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/20">
@@ -1323,13 +1358,13 @@ export default function Home() {
                           <Button onClick={cancelIncrement} variant="outline" className="flex-1 border-red-200 dark:border-red-800 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 gap-1">
                             <Undo2 className="w-4 h-4" /> Desfés
                           </Button>
-                          <Button onClick={confirmIncrement} disabled={!canSave} className={`flex-1 font-bold gap-1 ${canSave ? 'bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white' : 'bg-gray-200 dark:bg-stone-800 text-gray-400 dark:text-stone-500 cursor-not-allowed'}`}>
-                            Guardar 💾
+                          <Button onClick={confirmIncrement} disabled={!canSave || isSubmitting} className={`flex-1 font-bold gap-1 ${canSave && !isSubmitting ? 'bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white' : 'bg-gray-200 dark:bg-stone-800 text-gray-400 dark:text-stone-500 cursor-not-allowed'}`}>
+                            {isSubmitting ? <><RefreshCw className="w-4 h-4 animate-spin" /> Guardant...</> : 'Guardar 💾'}
                           </Button>
                         </>
                       ) : (
                         <>
-                          <Button onClick={submitLigueDetails} className="flex-1 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-bold gap-1">Guardar 💾</Button>
+                          <Button onClick={submitLigueDetails} disabled={isSubmitting} className="flex-1 bg-gradient-to-r from-orange-500 to-rose-500 hover:from-orange-600 hover:to-rose-600 text-white font-bold gap-1">{isSubmitting ? <><RefreshCw className="w-4 h-4 animate-spin" /> Guardant...</> : 'Guardar 💾'}</Button>
                           <Button variant="ghost" onClick={skipLigue}>Tancar</Button>
                         </>
                       )}
