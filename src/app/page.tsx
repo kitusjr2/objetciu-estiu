@@ -17,7 +17,7 @@ import {
   Moon, Sun, Share2, Clock, ChevronUp, Users,
   ArrowUp, ArrowDown, RefreshCw, X, Trash2, TrendingUp, MapPin, Calendar, Award,
   Volume2, VolumeX, Target, Timer, Swords, Gauge, Undo2, Search,
-  PartyPopper, Activity, Eye, Info, MessageCircle, BarChart3, Medal, Pencil, Wine,
+  PartyPopper, Activity, Eye, MessageCircle, BarChart3, Medal, Pencil, Wine,
   Camera, ImageIcon,
 } from 'lucide-react'
 
@@ -447,27 +447,27 @@ export default function Home() {
               <Flame className="w-6 h-6 sm:w-8 sm:h-8 text-orange-500 animate-pulse" />
               <span className="relative flex h-2.5 w-2.5 ml-1"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" /><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" /></span>
             </div>
-            <p className="text-[10px] sm:text-xs text-gray-400 dark:text-stone-500 mb-2 italic">&ldquo;{quote}&rdquo;</p>
+            <p className="text-sm text-gray-400 dark:text-stone-500 mb-2 italic">&ldquo;{quote}&rdquo;</p>
             <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
               {/* Total badge with sparkle */}
               <div className={`inline-flex items-center gap-2 px-4 py-2 backdrop-blur-md rounded-2xl shadow-lg border relative overflow-hidden ${darkMode?'bg-stone-800/70 border-stone-700':'bg-white/70 border-orange-100'}`}>
                 <Trophy className="w-5 h-5 text-amber-500" /><span className={`font-extrabold text-lg ${counterBump?'animate-counter-bump':''}`}>{totalLligues}</span><span className="text-sm text-gray-500">lligues</span>
                 <div className="absolute inset-0 animate-shimmer-sweep pointer-events-none" />
-                {totalLligues > 0 && Array.from({length:5}).map((_,i) => <span key={i} className="absolute animate-badge-sparkle pointer-events-none text-[8px]" style={{'--sparkle-x':`${15+Math.random()*70}%`,'--sparkle-y':`${15+Math.random()*70}%`,'--sparkle-delay':`${i*0.4}s`} as React.CSSProperties}>✦</span>)}
+                {totalLligues > 0 && Array.from({length:5}).map((_,i) => <span key={i} className="absolute animate-badge-sparkle pointer-events-none text-[10px]" style={{'--sparkle-x':`${15+Math.random()*70}%`,'--sparkle-y':`${15+Math.random()*70}%`,'--sparkle-delay':`${i*0.4}s`} as React.CSSProperties}>✦</span>)}
               </div>
               {/* Summer countdown */}
-              <div className="flex items-center gap-1 text-[10px] text-orange-500 font-medium bg-orange-50/50 dark:bg-orange-900/10 px-2 py-1 rounded-full">
-                <Timer className="w-3 h-3" />Estiu: {summerDays}
+              <div className="flex items-center gap-1 text-sm text-orange-500 font-medium bg-orange-50/50 dark:bg-orange-900/10 px-2 py-1 rounded-full">
+                <Timer className="w-3.5 h-3.5" />Estiu: {summerDays}
               </div>
               {/* Action buttons */}
-              <div className="flex items-center gap-1.5">
-                <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={undoLast} disabled={!hasLastAction} aria-label="Desfer última acció" className={hdrBtn}><Undo2 className="w-3.5 h-3.5" /></Button></TooltipTrigger><TooltipContent>Desfer</TooltipContent></Tooltip>
-                <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={shareSummary} aria-label="Compartir resum" className={hdrBtn}><Share2 className="w-3.5 h-3.5" /><span className="hidden sm:inline">Compartir</span></Button></TooltipTrigger><TooltipContent>Compartir</TooltipContent></Tooltip>
-                <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => { setShowTimeline(!showTimeline); setNewActivityCount(0) }} aria-label="Mostrar activitat" className={`relative ${hdrBtn} ${showTimeline?'bg-orange-100 dark:bg-orange-900/30':''}`}><Activity className="w-3.5 h-3.5" />{newActivityCount>0&&<span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[8px] font-bold flex items-center justify-center animate-pulse">{newActivityCount>9?'9+':newActivityCount}</span>}</Button></TooltipTrigger><TooltipContent>Activitat{newActivityCount>0?` (${newActivityCount} noves)`:''}</TooltipContent></Tooltip>
-                <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => setDarkMode(!darkMode)} aria-label={darkMode?'Mode clar':'Mode fosc'} className={hdrBtn}>{darkMode?<Sun className="w-3.5 h-3.5"/>:<Moon className="w-3.5 h-3.5"/>}</Button></TooltipTrigger><TooltipContent>{darkMode?'Clar':'Fosc'}</TooltipContent></Tooltip>
-                <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => setNightMode(!nightMode)} aria-label={nightMode?'Mode normal':'Mode nit'} className={`${hdrBtn} ${nightMode?'bg-rose-100 dark:bg-rose-900/30 border-rose-300 dark:border-rose-700':''}`}><Wine className="w-3.5 h-3.5" /><span className="hidden sm:inline text-[10px]">{nightMode?'Tornar':'Nit'}</span></Button></TooltipTrigger><TooltipContent>{nightMode?'Mode normal':'Mode Nit 🍷'}</TooltipContent></Tooltip>
-                <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => setShowResetConfirm(true)} aria-label="Reiniciar comptadors" className={`${hdrBtn} hover:bg-red-50 dark:hover:bg-red-900/20`}><RotateCcw className="w-3.5 h-3.5" /></Button></TooltipTrigger><TooltipContent>Reiniciar</TooltipContent></Tooltip>
-                <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => setSoundEnabled(!soundEnabled)} aria-label={soundEnabled?'Silenciar so':'Activar so'} className={hdrBtn}>{soundEnabled?<Volume2 className="w-3.5 h-3.5"/>:<VolumeX className="w-3.5 h-3.5"/>}</Button></TooltipTrigger><TooltipContent>{soundEnabled?'Silenciar':'So'}</TooltipContent></Tooltip>
+              <div className="flex items-center gap-2">
+                <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={undoLast} disabled={!hasLastAction} aria-label="Desfer última acció" className={hdrBtn}><Undo2 className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>Desfer</TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={shareSummary} aria-label="Compartir resum" className={hdrBtn}><Share2 className="w-4 h-4" /><span className="hidden sm:inline">Compartir</span></Button></TooltipTrigger><TooltipContent>Compartir</TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => { setShowTimeline(!showTimeline); setNewActivityCount(0) }} aria-label="Mostrar activitat" className={`relative ${hdrBtn} ${showTimeline?'bg-orange-100 dark:bg-orange-900/30':''}`}><Activity className="w-4 h-4" />{newActivityCount>0&&<span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">{newActivityCount>9?'9+':newActivityCount}</span>}</Button></TooltipTrigger><TooltipContent>Activitat{newActivityCount>0?` (${newActivityCount} noves)`:''}</TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => setDarkMode(!darkMode)} aria-label={darkMode?'Mode clar':'Mode fosc'} className={hdrBtn}>{darkMode?<Sun className="w-4 h-4"/>:<Moon className="w-4 h-4"/>}</Button></TooltipTrigger><TooltipContent>{darkMode?'Clar':'Fosc'}</TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => setNightMode(!nightMode)} aria-label={nightMode?'Mode normal':'Mode nit'} className={`${hdrBtn} ${nightMode?'bg-rose-100 dark:bg-rose-900/30 border-rose-300 dark:border-rose-700':''}`}><Wine className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>{nightMode?'Mode normal':'Mode Nit 🍷'}</TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => setShowResetConfirm(true)} aria-label="Reiniciar comptadors" className={`${hdrBtn} hover:bg-red-50 dark:hover:bg-red-900/20`}><RotateCcw className="w-4 h-4" /></Button></TooltipTrigger><TooltipContent>Reiniciar</TooltipContent></Tooltip>
+                <Tooltip><TooltipTrigger asChild><Button variant="outline" size="sm" onClick={() => setSoundEnabled(!soundEnabled)} aria-label={soundEnabled?'Silenciar so':'Activar so'} className={hdrBtn}>{soundEnabled?<Volume2 className="w-4 h-4"/>:<VolumeX className="w-4 h-4"/>}</Button></TooltipTrigger><TooltipContent>{soundEnabled?'Silenciar':'So'}</TooltipContent></Tooltip>
               </div>
             </div>
           </div>
@@ -493,12 +493,12 @@ export default function Home() {
           <div className="relative z-10 px-4 max-w-7xl mx-auto w-full animate-in slide-in-from-top duration-300">
             <Card className="bg-white/70 dark:bg-stone-900/70 backdrop-blur-md border-orange-100/80 dark:border-stone-800/80 shadow-lg overflow-hidden mb-4">
               <div className="h-1 bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-400" />
-              <CardContent className="p-3">
-                <div className="flex items-center gap-2 mb-2"><Clock className="w-4 h-4 text-cyan-500" /><h3 className="text-sm font-bold text-gray-700 dark:text-stone-300">Activitat</h3><Badge variant="secondary" className="text-[9px] h-4">{activity.length}</Badge><Button variant="ghost" size="sm" onClick={() => setShowTimeline(false)} aria-label="Tancar" className="ml-auto h-6 w-6 p-0"><ChevronUp className="w-3.5 h-3.5" /></Button></div>
-                <div className="max-h-36 overflow-y-auto custom-scrollbar space-y-1">{activity.slice(0, 30).map(e => (
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3 mb-3"><Clock className="w-4 h-4 text-cyan-500" /><h3 className="text-base font-bold text-gray-700 dark:text-stone-300">Activitat</h3><Badge variant="secondary" className="text-[11px] h-5">{activity.length}</Badge><Button variant="ghost" size="sm" onClick={() => setShowTimeline(false)} aria-label="Tancar" className="ml-auto h-6 w-6 p-0"><ChevronUp className="w-3.5 h-3.5" /></Button></div>
+                <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-1.5">{activity.slice(0, 30).map(e => (
                   <div key={e.id} className={`flex items-center gap-2 text-xs py-1 px-2 rounded-lg transition-colors ${e.action==='increment'?'bg-green-50/60 dark:bg-green-900/15 text-green-700 dark:text-green-400':'bg-red-50/60 dark:bg-red-900/15 text-red-600 dark:text-red-400'}`}>
                     {e.action==='increment'?<ArrowUp className="w-3 h-3"/>:<ArrowDown className="w-3 h-3"/>}
-                    <span className="font-medium">{e.personName}</span><span>{e.action==='increment'?'+1':'-1'}</span><span className="text-[10px]">→ {e.value}</span><span className="ml-auto text-[10px] opacity-60">{timeAgo(e.createdAt)}</span>
+                    <span className="font-medium">{e.personName}</span><span>{e.action==='increment'?'+1':'-1'}</span><span className="text-xs">→ {e.value}</span><span className="ml-auto text-xs opacity-60">{timeAgo(e.createdAt)}</span>
                   </div>
                 ))}</div>
               </CardContent>
@@ -513,24 +513,24 @@ export default function Home() {
             <div className="lg:col-span-5">
               <Card className="bg-white/70 dark:bg-stone-900/70 backdrop-blur-md border-orange-100/80 dark:border-stone-800/80 shadow-xl overflow-hidden">
                 <div className="h-1.5 bg-gradient-to-r from-orange-400 via-rose-400 to-pink-500" />
-                <CardContent className="p-4 sm:p-5">
-                  <div className="flex items-center gap-2 mb-3">
+                <CardContent className="p-5 sm:p-6">
+                  <div className="flex items-center gap-3 mb-4">
                     <Heart className="w-5 h-5 text-rose-500" />
                     <h2 className="text-lg sm:text-xl font-bold text-gray-800 dark:text-stone-200">Els Candidates</h2>
                     <span className="ml-auto text-xs text-gray-400 bg-gray-100 dark:bg-stone-800 px-2 py-0.5 rounded-full">{candidates.length}</span>
                     {/* View toggle */}
                     <div className="flex items-center gap-0.5 ml-2 bg-gray-100 dark:bg-stone-800 rounded-lg p-0.5">
-                      <button onClick={() => setActiveTab('grid')} className={`p-1 rounded text-[10px] transition-all ${activeTab==='grid'?'bg-white dark:bg-stone-700 shadow-sm text-orange-600 dark:text-orange-400':'text-gray-400'}`}>▦</button>
-                      <button onClick={() => setActiveTab('list')} className={`p-1 rounded text-[10px] transition-all ${activeTab==='list'?'bg-white dark:bg-stone-700 shadow-sm text-orange-600 dark:text-orange-400':'text-gray-400'}`}>☰</button>
+                      <button onClick={() => setActiveTab('grid')} className={`p-1.5 rounded text-xs transition-all ${activeTab==='grid'?'bg-white dark:bg-stone-700 shadow-sm text-orange-600 dark:text-orange-400':'text-gray-400'}`}>▦</button>
+                      <button onClick={() => setActiveTab('list')} className={`p-1.5 rounded text-xs transition-all ${activeTab==='list'?'bg-white dark:bg-stone-700 shadow-sm text-orange-600 dark:text-orange-400':'text-gray-400'}`}>☰</button>
                     </div>
                   </div>
-                  <Separator className="mb-3 bg-orange-100 dark:bg-stone-700" />
+                  <Separator className="mb-4 bg-orange-100 dark:bg-stone-700" />
                   {/* Search */}
-                  <div className="relative mb-3"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" /><Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Cercar per nom o àlies..." className="h-8 pl-8 text-xs bg-white/50 dark:bg-stone-800/50 border-orange-100 dark:border-stone-700 focus:border-orange-300 dark:focus:border-orange-700" />{searchQuery && <button onClick={() => setSearchQuery('')} aria-label="Netejar cerca" className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X className="w-3 h-3" /></button>}</div>
+                  <div className="relative mb-3"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><Input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Cercar per nom o àlies..." className="h-10 pl-9 text-sm bg-white/50 dark:bg-stone-800/50 border-orange-100 dark:border-stone-700 focus:border-orange-300 dark:focus:border-orange-700" />{searchQuery && <button onClick={() => setSearchQuery('')} aria-label="Netejar cerca" className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"><X className="w-3.5 h-3.5" /></button>}</div>
 
                   {activeTab === 'grid' ? (
                     /* GRID VIEW */
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-2.5">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 gap-3">
                       {filteredCandidates.map((person, idx) => {
                         const rank = sorted.findIndex(s => s.id === person.id)
                         const isExempt = EXEMPT_IDS.has(person.id)
@@ -540,10 +540,10 @@ export default function Home() {
                           <div key={person.id} className={`relative group rounded-2xl overflow-hidden transition-all duration-300 hover:scale-[1.03] hover:-translate-y-1 candidate-card-hover animate-card-entrance ${isExempt?'ring-2 ring-purple-400/60 dark:ring-purple-500/40 pulse-glow-purple':rank===0&&person.lligatCount>0?'ring-2 ring-amber-400 dark:ring-amber-500 shadow-lg shadow-amber-200/40 dark:shadow-amber-500/20 pulse-glow-amber':person.lligatCount>0?'ring-2 ring-green-400/60 dark:ring-green-500/40 shadow-md':'ring-1 ring-gray-200/80 dark:ring-stone-700/80'}`} style={{ animationDelay: `${idx*50}ms` }}>
                             <div className="aspect-square relative cursor-pointer" onClick={() => setSelectedCandidateId(person.id)}>
                               <img src={person.photo} alt={person.name} style={IMG_POS[person.id]?{objectPosition:IMG_POS[person.id]}:undefined} className={`w-full h-full object-cover transition-all duration-500 ${isExempt?'brightness-75 grayscale-[30%]':rank===0&&person.lligatCount>0?'brightness-110 saturate-150':person.lligatCount>0?'brightness-105 saturate-120':'brightness-90'}`} />
-                              {isExempt && <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold shadow-lg bg-purple-500/90 text-white backdrop-blur-sm">🏳️‍🌈 EXEMPT</div>}
+                              {isExempt && <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full text-[11px] font-extrabold shadow-lg bg-purple-500/90 text-white backdrop-blur-sm">🏳️‍🌈 EXEMPT</div>}
                               {person.lligatCount > 0 && !isExempt && <div className={`absolute top-1.5 left-1.5 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-lg ${rank===0?'bg-amber-400 text-amber-900':rank===1?'bg-gray-300 text-gray-700':rank===2?'bg-orange-400 text-orange-900':'bg-black/50 text-white'}`}>{rank+1}</div>}
                               <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
-                                {streak>=2 && <div className={`flex items-center justify-center rounded-full text-[8px] font-black shadow-lg ${streak>=5?'w-6 h-6 bg-gradient-to-br from-red-500 to-orange-600 text-white animate-bounce':'w-5 h-5 bg-gradient-to-br from-amber-400 to-orange-500 text-white'}`}>🔥</div>}
+                                {streak>=2 && <div className={`flex items-center justify-center rounded-full text-[10px] font-black shadow-lg ${streak>=5?'w-6 h-6 bg-gradient-to-br from-red-500 to-orange-600 text-white animate-bounce':'w-5 h-5 bg-gradient-to-br from-amber-400 to-orange-500 text-white'}`}>🔥</div>}
                                 <div className={`px-2 py-0.5 rounded-full text-sm font-extrabold shadow-lg ${person.lligatCount>0?'bg-green-500 text-white':'bg-black/40 text-white/70'}`}>{person.lligatCount}</div>
                               </div>
                               {rank===0&&person.lligatCount>0&&!isExempt && <Crown className="absolute -top-0 left-1/2 -translate-x-1/2 -translate-y-1 w-6 h-6 text-amber-400 drop-shadow-lg" />}
@@ -552,17 +552,17 @@ export default function Home() {
                                 <Eye className="w-4 h-4 text-white" />
                               </div>
                               <div className="absolute bottom-0 left-0 right-0 p-1.5 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
-                                <p className="text-xs sm:text-sm font-bold text-white truncate">{person.name} {isExempt&&<span className="text-[8px] text-purple-300">(exempt)</span>}</p>
-                                <p className="text-[9px] text-white/60 truncate">{person.nickname}</p>
-                                {achs.length>0 && <div className="flex items-center gap-0.5 mt-0.5 flex-wrap">{achs.map(a => <Tooltip key={a.id}><TooltipTrigger asChild><span className="text-[10px] hover:scale-125 inline-block transition-transform">{a.emoji}</span></TooltipTrigger><TooltipContent side="bottom" className="text-xs"><strong>{a.name}</strong>: {a.desc}</TooltipContent></Tooltip>)}</div>}
-                                {avgR>0 && <p className="text-[8px] text-amber-300/80 flex items-center gap-0.5 mt-0.5"><Star className="w-2.5 h-2.5" /> {avgR.toFixed(1)}</p>}
+                                <p className="text-sm sm:text-base font-bold text-white truncate">{person.name} {isExempt&&<span className="text-xs text-purple-300">(exempt)</span>}</p>
+                                <p className="text-xs text-white/60 truncate">{person.nickname}</p>
+                                {achs.length>0 && <div className="flex items-center gap-0.5 mt-0.5 flex-wrap">{achs.map(a => <Tooltip key={a.id}><TooltipTrigger asChild><span className="text-xs hover:scale-125 inline-block transition-transform">{a.emoji}</span></TooltipTrigger><TooltipContent side="bottom" className="text-xs"><strong>{a.name}</strong>: {a.desc}</TooltipContent></Tooltip>)}</div>}
+                                {avgR>0 && <p className="text-xs text-amber-300/80 flex items-center gap-0.5 mt-0.5"><Star className="w-2.5 h-2.5" /> {avgR.toFixed(1)}</p>}
                                 <div className="flex items-center gap-1 mt-1">
-                                  <button onClick={e => { e.stopPropagation(); decrement(person.id) }} aria-label={`Disminuir ${person.name}`} className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200 ${person.lligatCount>0?'bg-red-500/80 hover:bg-red-600 text-white hover:scale-110':'bg-white/20 text-white/40'}`}>−</button>
-                                  <button onClick={e => { e.stopPropagation(); setEditingId(person.id); setEditValue(String(person.lligatCount)) }} className="flex-1 h-8 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition-all duration-200">{person.lligatCount} lligat{person.lligatCount!==1?'s':''}</button>
-                                  <button onClick={e => { e.stopPropagation(); increment(person.id) }} aria-label={`Incrementar ${person.name}`} className="w-8 h-8 rounded-full bg-green-500/80 hover:bg-green-600 text-white text-xs font-bold flex items-center justify-center transition-all duration-200 hover:scale-110">+</button>
+                                  <button onClick={e => { e.stopPropagation(); decrement(person.id) }} aria-label={`Disminuir ${person.name}`} className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-200 ${person.lligatCount>0?'bg-red-500/80 hover:bg-red-600 text-white hover:scale-110':'bg-white/20 text-white/40'}`}>−</button>
+                                  <button onClick={e => { e.stopPropagation(); setEditingId(person.id); setEditValue(String(person.lligatCount)) }} className="flex-1 h-10 rounded-full bg-white/20 hover:bg-white/30 text-white text-sm font-bold transition-all duration-200">{person.lligatCount} lligat{person.lligatCount!==1?'s':''}</button>
+                                  <button onClick={e => { e.stopPropagation(); increment(person.id) }} aria-label={`Incrementar ${person.name}`} className="w-10 h-10 rounded-full bg-green-500/80 hover:bg-green-600 text-white text-sm font-bold flex items-center justify-center transition-all duration-200 hover:scale-110">+</button>
                                 </div>
                                 {ligueHintId===person.id && (
-                                  <button onClick={e => { e.stopPropagation(); openLigueForm(person.id) }} className="animate-hint-fade mt-1 w-full h-6 rounded-full bg-pink-500/80 hover:bg-pink-600 text-white text-[10px] font-bold flex items-center justify-center gap-1 transition-all duration-200">💋 Afegir detalls</button>
+                                  <button onClick={e => { e.stopPropagation(); openLigueForm(person.id) }} className="animate-hint-fade mt-1 w-full h-8 rounded-full bg-pink-500/80 hover:bg-pink-600 text-white text-xs font-bold flex items-center justify-center gap-1 transition-all duration-200">💋 Afegir detalls</button>
                                 )}
                               </div>
                             </div>
@@ -572,7 +572,7 @@ export default function Home() {
                     </div>
                   ) : (
                     /* LIST VIEW */
-                    <div className="space-y-1.5 max-h-[600px] overflow-y-auto custom-scrollbar">
+                    <div className="space-y-2.5 max-h-[600px] overflow-y-auto custom-scrollbar">
                       {filteredCandidates.map((person, idx) => {
                         const rank = sorted.findIndex(s => s.id === person.id)
                         const isExempt = EXEMPT_IDS.has(person.id)
@@ -586,18 +586,18 @@ export default function Home() {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5">
                                 <span className="text-sm font-bold text-gray-800 dark:text-stone-200 truncate">{person.name}</span>
-                                {isExempt && <Badge variant="secondary" className="text-[8px] h-4 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">EXEMPT</Badge>}
-                                <span className="text-[10px] text-gray-400 truncate">{person.nickname}</span>
+                                {isExempt && <Badge variant="secondary" className="text-[10px] h-5 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">EXEMPT</Badge>}
+                                <span className="text-xs text-gray-400 truncate">{person.nickname}</span>
                               </div>
                               <div className="flex items-center gap-1 mt-0.5">
-                                {streak>=2 && <span className="text-[10px]">🔥</span>}
-                                {achs.length>0 && <span className="text-[10px]">{achs.map(a => a.emoji).join('')}</span>}
+                                {streak>=2 && <span className="text-xs">🔥</span>}
+                                {achs.length>0 && <span className="text-xs">{achs.map(a => a.emoji).join('')}</span>}
                               </div>
                             </div>
                             <div className="flex items-center gap-1.5 flex-shrink-0">
-                              <button onClick={e => { e.stopPropagation(); decrement(person.id) }} className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${person.lligatCount>0?'bg-red-100 dark:bg-red-900/30 text-red-600 hover:bg-red-200':'bg-gray-100 dark:bg-stone-800 text-gray-300'}`}>−</button>
+                              <button onClick={e => { e.stopPropagation(); decrement(person.id) }} className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all ${person.lligatCount>0?'bg-red-100 dark:bg-red-900/30 text-red-600 hover:bg-red-200':'bg-gray-100 dark:bg-stone-800 text-gray-300'}`}>−</button>
                               <span className="w-8 text-center text-base font-extrabold text-gray-800 dark:text-stone-200">{person.lligatCount}</span>
-                              <button onClick={e => { e.stopPropagation(); increment(person.id) }} className="w-7 h-7 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 hover:bg-green-200 flex items-center justify-center text-xs font-bold transition-all">+</button>
+                              <button onClick={e => { e.stopPropagation(); increment(person.id) }} className="w-9 h-9 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 hover:bg-green-200 flex items-center justify-center text-sm font-bold transition-all">+</button>
                             </div>
                           </div>
                         )
@@ -612,9 +612,9 @@ export default function Home() {
             <div className="lg:col-span-4">
               <Card className="bg-white/70 dark:bg-stone-900/70 backdrop-blur-md border-orange-100/80 dark:border-stone-800/80 shadow-xl overflow-hidden">
                 <div className="h-1.5 bg-gradient-to-r from-yellow-400 via-amber-400 to-orange-400" />
-                <CardContent className="p-4 sm:p-5">
-                  <div className="flex items-center gap-2 mb-3"><Crown className="w-5 h-5 text-amber-500" /><h2 className="text-lg sm:text-xl font-bold text-gray-800 dark:text-stone-200">Classificació</h2><span className="ml-auto text-[10px] text-gray-400 flex items-center gap-1"><RefreshCw className="w-3 h-3 animate-spin" style={{animationDuration:'3s'}}/>auto</span></div>
-                  <Separator className="mb-3 bg-orange-100 dark:bg-stone-700" />
+                <CardContent className="p-5 sm:p-6">
+                  <div className="flex items-center gap-3 mb-4"><Crown className="w-5 h-5 text-amber-500" /><h2 className="text-lg sm:text-xl font-bold text-gray-800 dark:text-stone-200">Classificació</h2><span className="ml-auto text-xs text-gray-400 flex items-center gap-1"><RefreshCw className="w-3 h-3 animate-spin" style={{animationDuration:'3s'}}/>auto</span></div>
+                  <Separator className="mb-4 bg-orange-100 dark:bg-stone-700" />
                   {nonExempt.every(c => c.lligatCount===0) ? (
                     <div className="text-center py-10">
                       <div className="relative mx-auto w-24 h-24 mb-4">
@@ -626,10 +626,10 @@ export default function Home() {
                       </div>
                       <p className="text-sm text-gray-400 italic">Encara ningú ha lligat...</p>
                       <p className="text-xs text-gray-300 mt-1">Sigues el primer! 💪</p>
-                      <div className="flex items-center justify-center gap-1 mt-3 text-[10px] text-orange-400/60 animate-pulse"><Flame className="w-3 h-3" />La nit és jove</div>
+                      <div className="flex items-center justify-center gap-1.5 mt-3 text-xs text-orange-400/60 animate-pulse"><Flame className="w-3 h-3" />La nit és jove</div>
                     </div>
                   ) : (
-                    <div className="space-y-2 max-h-[560px] overflow-y-auto custom-scrollbar">{sorted.map((person, index) => {
+                    <div className="space-y-3 max-h-[650px] overflow-y-auto custom-scrollbar">{sorted.map((person, index) => {
                       const maxCount = sorted.filter(c => !EXEMPT_IDS.has(c.id))[0]?.lligatCount || 1
                       const barWidth = maxCount>0?(person.lligatCount/maxCount)*100:0
                       const avgR = getAvgRating(person.id); const pLigues = ligues.filter(l => l.personId===person.id)
@@ -637,26 +637,26 @@ export default function Home() {
                       const stripe = !isExempt&&index===0?'rank-stripe-gold animate-gradient-border':!isExempt&&index===1?'rank-stripe-silver':!isExempt&&index===2?'rank-stripe-bronze':''
                       const barColor = !isExempt&&index===0?'#f59e0b':!isExempt&&index===1?'#9ca3af':!isExempt&&index===2?'#f97316':'#f97316'
                       return (
-                        <div key={person.id} className={`relative flex items-center gap-2.5 p-2.5 rounded-xl transition-all duration-300 animate-card-entrance hover:shadow-lg hover:shadow-orange-200/20 dark:hover:shadow-orange-500/5 hover:-translate-y-0.5 leaderboard-item ${stripe} ${isExempt?'bg-purple-50/60 dark:bg-purple-900/15 border border-purple-200/40 dark:border-purple-800/30':index===0?'bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/50 dark:border-amber-800/50':index===1?'bg-gray-50/80 dark:bg-stone-800/30 border border-gray-200/50 dark:border-stone-700/50':index===2?'bg-orange-50/80 dark:bg-orange-900/15 border border-orange-200/50 dark:border-orange-800/50':'border border-transparent hover:bg-orange-50/30 dark:hover:bg-stone-800/20'}`} style={{ animationDelay: `${index*40}ms`, '--lb-bar-color': barColor } as React.CSSProperties}>
+                        <div key={person.id} className={`relative flex items-center gap-3 p-3 rounded-xl transition-all duration-300 animate-card-entrance hover:shadow-lg hover:shadow-orange-200/20 dark:hover:shadow-orange-500/5 hover:-translate-y-0.5 leaderboard-item ${stripe} ${isExempt?'bg-purple-50/60 dark:bg-purple-900/15 border border-purple-200/40 dark:border-purple-800/30':index===0?'bg-amber-50/80 dark:bg-amber-900/20 border border-amber-200/50 dark:border-amber-800/50':index===1?'bg-gray-50/80 dark:bg-stone-800/30 border border-gray-200/50 dark:border-stone-700/50':index===2?'bg-orange-50/80 dark:bg-orange-900/15 border border-orange-200/50 dark:border-orange-800/50':'border border-transparent hover:bg-orange-50/30 dark:hover:bg-stone-800/20'}`} style={{ animationDelay: `${index*40}ms`, '--lb-bar-color': barColor } as React.CSSProperties}>
                           <div className="flex flex-col items-center w-8 flex-shrink-0">
-                            <span className="text-lg">{isExempt?'🏳️':index===0?'👑':index===1?'🥈':index===2?'🥉':index+1}</span>
-                            {rc!==0&&!isExempt && (<span className={`text-[9px] font-bold flex items-center gap-0.5 animate-rank-bounce ${rc>0?'text-green-500':'text-red-500'}`}>{rc>0?(<ArrowUp className="w-2.5 h-2.5"/>):(<ArrowDown className="w-2.5 h-2.5"/>)}{Math.abs(rc)}</span>)}
+                            <span className="text-xl">{isExempt?'🏳️':index===0?'👑':index===1?'🥈':index===2?'🥉':index+1}</span>
+                            {rc!==0&&!isExempt && (<span className={`text-xs font-bold flex items-center gap-0.5 animate-rank-bounce ${rc>0?'text-green-500':'text-red-500'}`}>{rc>0?(<ArrowUp className="w-2.5 h-2.5"/>):(<ArrowDown className="w-2.5 h-2.5"/>)}{Math.abs(rc)}</span>)}
                           </div>
-                          <div className={`relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ${index===0&&!isExempt?'ring-2 ring-amber-400 shadow-md shadow-amber-200/30':'ring-1 ring-gray-200 dark:ring-stone-700'}`}>
+                          <div className={`relative w-11 h-11 rounded-full overflow-hidden flex-shrink-0 ${index===0&&!isExempt?'ring-2 ring-amber-400 shadow-md shadow-amber-200/30':'ring-1 ring-gray-200 dark:ring-stone-700'}`}>
                             <img src={person.photo} alt={person.name} style={IMG_POS[person.id]?{objectPosition:IMG_POS[person.id]}:undefined} className={`w-full h-full object-cover ${isExempt?'grayscale-[30%] opacity-70':''}`} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-baseline gap-1.5"><p className={`text-sm font-bold truncate ${isExempt?'text-purple-500 dark:text-purple-400':'text-gray-700 dark:text-stone-300'}`}>{person.name}</p>{!isExempt&&isCaliente(person.id)&&<span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" /></span>}<p className="text-[10px] text-gray-400">{person.nickname}</p></div>
+                            <div className="flex items-baseline gap-1.5"><p className={`text-base font-bold truncate ${isExempt?'text-purple-500 dark:text-purple-400':'text-gray-700 dark:text-stone-300'}`}>{person.name}</p>{!isExempt&&isCaliente(person.id)&&<span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" /></span>}<p className="text-xs text-gray-400">{person.nickname}</p></div>
                             <div className="flex items-center gap-2 mt-0.5">
-                              {pLigues.length>0 && <button onClick={() => setShowLigueHistory(person.id)} aria-label={`Historial de ${person.name}`} className="text-[9px] text-orange-500 hover:underline flex items-center gap-0.5"><MessageCircle className="w-2.5 h-2.5" />{pLigues.length}</button>}
-                              {avgR>0 && <span className="text-[9px] text-amber-500 flex items-center gap-0.5"><Star className="w-2.5 h-2.5" />{avgR.toFixed(1)}</span>}
+                              {pLigues.length>0 && <button onClick={() => setShowLigueHistory(person.id)} aria-label={`Historial de ${person.name}`} className="text-xs text-orange-500 hover:underline flex items-center gap-0.5"><MessageCircle className="w-2.5 h-2.5" />{pLigues.length}</button>}
+                              {avgR>0 && <span className="text-xs text-amber-500 flex items-center gap-0.5"><Star className="w-2.5 h-2.5" />{avgR.toFixed(1)}</span>}
                             </div>
                             {person.lligatCount>0&&!isExempt && <div className="mt-1 h-1.5 w-full bg-gray-200/60 dark:bg-stone-700/40 rounded-full overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-orange-400 to-rose-400 transition-all duration-700 relative" style={{ width: `${barWidth}%` }}><div className="absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/30 to-transparent" /></div></div>}
                           </div>
                           <div className="flex items-center gap-1 flex-shrink-0">
-                            <button onClick={() => decrement(person.id)} aria-label={`Disminuir ${person.name}`} className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200 ${person.lligatCount>0?'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 hover:scale-110':'bg-gray-100 dark:bg-stone-800 text-gray-300'}`}>−</button>
-                            <span className="w-8 text-center text-lg font-extrabold text-gray-800 dark:text-stone-200">{person.lligatCount}</span>
-                            <button onClick={() => increment(person.id)} aria-label={`Incrementar ${person.name}`} className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 flex items-center justify-center text-xs font-bold transition-all duration-200 hover:scale-110">+</button>
+                            <button onClick={() => decrement(person.id)} aria-label={`Disminuir ${person.name}`} className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-200 ${person.lligatCount>0?'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 hover:scale-110':'bg-gray-100 dark:bg-stone-800 text-gray-300'}`}>−</button>
+                            <span className="w-8 text-center text-xl font-extrabold text-gray-800 dark:text-stone-200">{person.lligatCount}</span>
+                            <button onClick={() => increment(person.id)} aria-label={`Incrementar ${person.name}`} className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 hover:bg-green-200 flex items-center justify-center text-sm font-bold transition-all duration-200 hover:scale-110">+</button>
                           </div>
                         </div>
                       )
@@ -674,14 +674,14 @@ export default function Home() {
               {rivalries.length>0 && (
                 <Card className="mt-4 bg-white/70 dark:bg-stone-900/70 backdrop-blur-md border-orange-100/80 dark:border-stone-800/80 shadow-xl overflow-hidden animate-card-entrance">
                   <div className="h-1.5 bg-gradient-to-r from-red-400 via-orange-400 to-yellow-400" />
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 mb-2"><Swords className="w-4 h-4 text-red-500" /><h3 className="text-sm font-bold text-gray-700 dark:text-stone-300">Rivalitats</h3><Badge variant="secondary" className="text-[8px] h-4 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400">EN DIRECTE</Badge></div>
-                    <div className="space-y-1.5">{rivalries.map((r, i) => (
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-3 mb-3"><Swords className="w-4 h-4 text-red-500" /><h3 className="text-base font-bold text-gray-700 dark:text-stone-300">Rivalitats</h3><Badge variant="secondary" className="text-[10px] h-5 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400">EN DIRECTE</Badge></div>
+                    <div className="space-y-2.5">{rivalries.map((r, i) => (
                       <div key={i} className="flex items-center gap-2 text-xs p-2 rounded-lg bg-gradient-to-r from-red-50/50 to-orange-50/50 dark:from-red-900/10 dark:to-orange-900/10 border border-red-100/30 dark:border-red-800/20 transition-all hover:scale-[1.01]">
                         <div className="w-5 h-5 rounded-full overflow-hidden ring-1 ring-gray-200 dark:ring-stone-700"><img src={r.a.photo} alt={r.a.name} style={IMG_POS[r.a.id]?{objectPosition:IMG_POS[r.a.id]}:undefined} className="w-full h-full object-cover" /></div>
                         <span className="font-bold text-gray-700 dark:text-stone-300">{r.a.name}</span><span className="text-red-500 font-extrabold">⚔️</span>
                         <div className="w-5 h-5 rounded-full overflow-hidden ring-1 ring-gray-200 dark:ring-stone-700"><img src={r.b.photo} alt={r.b.name} style={IMG_POS[r.b.id]?{objectPosition:IMG_POS[r.b.id]}:undefined} className="w-full h-full object-cover" /></div>
-                        <span className="font-bold text-gray-700 dark:text-stone-300">{r.b.name}</span><span className="ml-auto text-[10px] text-red-500 font-bold">-{r.diff}</span>
+                        <span className="font-bold text-gray-700 dark:text-stone-300">{r.b.name}</span><span className="ml-auto text-xs text-red-500 font-bold">-{r.diff}</span>
                       </div>
                     ))}</div>
                   </CardContent>
@@ -693,74 +693,74 @@ export default function Home() {
             <div className="lg:col-span-3 space-y-4">
               <Card className="bg-white/70 dark:bg-stone-900/70 backdrop-blur-md border-orange-100/80 dark:border-stone-800/80 shadow-xl overflow-hidden">
                 <div className="h-1.5 bg-gradient-to-r from-rose-400 via-pink-400 to-fuchsia-400" />
-                <CardContent className="p-4 sm:p-5">
-                  <div className="flex items-center gap-2 mb-3">
+                <CardContent className="p-5 sm:p-6">
+                  <div className="flex items-center gap-3 mb-4">
                     <Zap className="w-5 h-5 text-rose-500" />
                     {/* Section tabs */}
                     <div className="flex items-center gap-0.5 bg-gray-100 dark:bg-stone-800 rounded-lg p-0.5 flex-1">
-                      <button onClick={() => setActiveSection('stats')} className={`flex-1 px-2 py-1 rounded text-[11px] font-bold transition-all ${activeSection==='stats'?'bg-white dark:bg-stone-700 shadow-sm text-orange-600 dark:text-orange-400':'text-gray-400'}`}>Estadístiques</button>
-                      <button onClick={() => setActiveSection('feed')} className={`flex-1 px-2 py-1 rounded text-[11px] font-bold transition-all ${activeSection==='feed'?'bg-white dark:bg-stone-700 shadow-sm text-orange-600 dark:text-orange-400':'text-gray-400'}`}>Feed 📸</button>
+                      <button onClick={() => setActiveSection('stats')} className={`flex-1 px-3 py-1.5 rounded text-sm font-bold transition-all ${activeSection==='stats'?'bg-white dark:bg-stone-700 shadow-sm text-orange-600 dark:text-orange-400':'text-gray-400'}`}>Estadístiques</button>
+                      <button onClick={() => setActiveSection('feed')} className={`flex-1 px-3 py-1.5 rounded text-sm font-bold transition-all ${activeSection==='feed'?'bg-white dark:bg-stone-700 shadow-sm text-orange-600 dark:text-orange-400':'text-gray-400'}`}>Feed 📸</button>
                     </div>
                   </div>
-                  <Separator className="mb-3 bg-orange-100 dark:bg-stone-700" />
+                  <Separator className="mb-4 bg-orange-100 dark:bg-stone-700" />
                   {activeSection === 'stats' ? (
                   <>
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/10 rounded-xl p-2.5 text-center border border-orange-100/50 dark:border-orange-800/30 hover:shadow-md transition-shadow"><p className="text-2xl font-extrabold text-orange-600 dark:text-orange-400">{totalLligues}</p><p className="text-[10px] text-gray-500">Total</p></div>
-                    <div className="bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-900/20 dark:to-pink-900/10 rounded-xl p-2.5 text-center border border-rose-100/50 dark:border-rose-800/30 hover:shadow-md transition-shadow"><p className="text-2xl font-extrabold text-rose-600 dark:text-rose-400">{avgLligues}</p><p className="text-[10px] text-gray-500">Mitjana</p></div>
-                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/10 rounded-xl p-2.5 text-center border border-green-100/50 dark:border-green-800/30 hover:shadow-md transition-shadow"><p className="text-2xl font-extrabold text-green-600 dark:text-green-400">{activeCount}</p><p className="text-[10px] text-gray-500">Actius</p></div>
-                    <div className="bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/10 rounded-xl p-2.5 text-center border border-amber-100/50 dark:border-amber-800/30 hover:shadow-md transition-shadow"><p className="text-lg font-extrabold text-amber-600 dark:text-amber-400 truncate">{topCandidate&&topCandidate.lligatCount>0?topCandidate.name:'—'}</p><p className="text-[10px] text-gray-500">Líder</p></div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/10 rounded-xl p-3 text-center border border-orange-100/50 dark:border-orange-800/30 hover:shadow-md transition-shadow"><p className="text-2xl font-extrabold text-orange-600 dark:text-orange-400">{totalLligues}</p><p className="text-sm text-gray-500">Total</p></div>
+                    <div className="bg-gradient-to-br from-rose-50 to-pink-50 dark:from-rose-900/20 dark:to-pink-900/10 rounded-xl p-3 text-center border border-rose-100/50 dark:border-rose-800/30 hover:shadow-md transition-shadow"><p className="text-2xl font-extrabold text-rose-600 dark:text-rose-400">{avgLligues}</p><p className="text-sm text-gray-500">Mitjana</p></div>
+                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/10 rounded-xl p-3 text-center border border-green-100/50 dark:border-green-800/30 hover:shadow-md transition-shadow"><p className="text-2xl font-extrabold text-green-600 dark:text-green-400">{activeCount}</p><p className="text-sm text-gray-500">Actius</p></div>
+                    <div className="bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/10 rounded-xl p-3 text-center border border-amber-100/50 dark:border-amber-800/30 hover:shadow-md transition-shadow"><p className="text-lg font-extrabold text-amber-600 dark:text-amber-400 truncate">{topCandidate&&topCandidate.lligatCount>0?topCandidate.name:'—'}</p><p className="text-sm text-gray-500">Líder</p></div>
                   </div>
                   {/* Weekly stats */}
                   {weeklyStats.total > 0 && (
                     <div className="mt-3 p-2.5 rounded-lg bg-gradient-to-r from-violet-50/50 to-purple-50/50 dark:from-violet-900/10 dark:to-purple-900/10 border border-violet-100/30 dark:border-violet-800/20">
-                      <div className="flex items-center gap-1.5 mb-1"><Calendar className="w-3 h-3 text-violet-500" /><span className="text-[10px] font-bold text-gray-500 dark:text-stone-400">Aquesta setmana</span></div>
+                      <div className="flex items-center gap-1.5 mb-1"><Calendar className="w-3 h-3 text-violet-500" /><span className="text-xs font-bold text-gray-500 dark:text-stone-400">Aquesta setmana</span></div>
                       <p className="text-sm font-extrabold text-violet-600 dark:text-violet-400">{weeklyStats.total} lligades</p>
                       {weeklyStats.top && (
-                        <p className="text-[9px] text-gray-400 mt-0.5">👑 {candidates.find(c => c.id === weeklyStats.top!.id)?.name} ({weeklyStats.top.count})</p>
+                        <p className="text-xs text-gray-400 mt-0.5">👑 {candidates.find(c => c.id === weeklyStats.top!.id)?.name} ({weeklyStats.top.count})</p>
                       )}
                     </div>
                   )}
                   {/* Avui stats */}
                   {todayStats.total > 0 && (
                     <div className="mt-3 p-2.5 rounded-lg bg-gradient-to-r from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/10 dark:to-teal-900/10 border border-emerald-100/30 dark:border-emerald-800/20">
-                      <div className="flex items-center gap-1.5 mb-1"><BarChart3 className="w-3 h-3 text-emerald-500" /><span className="text-[10px] font-bold text-gray-500 dark:text-stone-400">📊 Avui</span></div>
+                      <div className="flex items-center gap-1.5 mb-1"><BarChart3 className="w-3 h-3 text-emerald-500" /><span className="text-xs font-bold text-gray-500 dark:text-stone-400">📊 Avui</span></div>
                       <p className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">{todayStats.total} lligades</p>
-                      {todayStats.top && <p className="text-[9px] text-gray-400 mt-0.5">👑 {candidates.find(c => c.id === todayStats.top!.id)?.name} ({todayStats.top.count})</p>}
-                      {todayStats.avgRating > 0 && <p className="text-[9px] text-amber-500 mt-0.5">⭐ Mitjana: {todayStats.avgRating.toFixed(1)}/10</p>}
+                      {todayStats.top && <p className="text-xs text-gray-400 mt-0.5">👑 {candidates.find(c => c.id === todayStats.top!.id)?.name} ({todayStats.top.count})</p>}
+                      {todayStats.avgRating > 0 && <p className="text-xs text-amber-500 mt-0.5">⭐ Mitjana: {todayStats.avgRating.toFixed(1)}/10</p>}
                     </div>
                   )}
                   {/* Speed */}
                   {(() => { const ri = activity.filter(a => a.action==='increment'&&Date.now()-new Date(a.createdAt).getTime()<86400000).length; if (ri===0&&totalLligues===0) return null; const sp = Math.min(ri/5*100, 100); return (
                     <div className="mt-3 p-2.5 rounded-lg bg-gradient-to-r from-cyan-50/50 to-blue-50/50 dark:from-cyan-900/10 dark:to-blue-900/10 border border-cyan-100/30 dark:border-cyan-800/20">
-                      <div className="flex items-center gap-1.5 mb-1"><Gauge className="w-3 h-3 text-cyan-500" /><span className="text-[10px] font-bold text-gray-500 dark:text-stone-400">Ritme avui</span></div>
+                      <div className="flex items-center gap-1.5 mb-1"><Gauge className="w-3 h-3 text-cyan-500" /><span className="text-xs font-bold text-gray-500 dark:text-stone-400">Ritme avui</span></div>
                       <div className="h-2 bg-gray-200/60 dark:bg-stone-700/40 rounded-full overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 transition-all duration-700" style={{ width: `${sp}%` }} /></div>
-                      <p className="text-[9px] text-gray-400 mt-0.5">{ri} lligades/24h {sp>=80?'🚀':sp>=40?'🔥':'💤'}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{ri} lligades/24h {sp>=80?'🚀':sp>=40?'🔥':'💤'}</p>
                     </div>
                   )})()}
                   {/* Location Stats */}
                   {locationStats.unique>0 && (
                     <div className="mt-3 p-2.5 rounded-lg bg-gradient-to-r from-teal-50/50 to-cyan-50/50 dark:from-teal-900/10 dark:to-cyan-900/10 border border-teal-100/30 dark:border-teal-800/20">
-                      <div className="flex items-center gap-1.5 mb-1"><MapPin className="w-3 h-3 text-teal-500" /><span className="text-[10px] font-bold text-gray-500 dark:text-stone-400">📍 Ubicacions</span></div>
+                      <div className="flex items-center gap-1.5 mb-1"><MapPin className="w-3 h-3 text-teal-500" /><span className="text-xs font-bold text-gray-500 dark:text-stone-400">📍 Ubicacions</span></div>
                       <p className="text-sm font-extrabold text-teal-600 dark:text-teal-400">{locationStats.unique}</p>
-                      {locationStats.top3.length>0 && <div className="mt-1 space-y-0.5">{locationStats.top3.map(([loc, cnt]) => <div key={loc} className="flex items-center justify-between text-[9px]"><span className="text-gray-600 dark:text-stone-400 truncate">{loc}</span><span className="font-bold text-teal-500 ml-1">{cnt}×</span></div>)}</div>}
+                      {locationStats.top3.length>0 && <div className="mt-1 space-y-0.5">{locationStats.top3.map(([loc, cnt]) => <div key={loc} className="flex items-center justify-between text-xs"><span className="text-gray-600 dark:text-stone-400 truncate">{loc}</span><span className="font-bold text-teal-500 ml-1">{cnt}×</span></div>)}</div>}
                     </div>
                   )}
                   {/* Top Rating */}
-                  {ligues.length>0 && (<div className="mt-3"><div className="flex items-center gap-1.5 mb-2"><Award className="w-3.5 h-3.5 text-amber-500" /><p className="text-[11px] font-bold text-gray-500">Top Valoració</p></div><div className="space-y-1">{candidates.filter(c => getAvgRating(c.id)>0).sort((a, b) => getAvgRating(b.id)-getAvgRating(a.id)).slice(0, 3).map((c, i) => (<div key={c.id} className="flex items-center gap-2 text-[10px] px-2 py-1 rounded-lg bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100/30 dark:border-amber-800/20 hover:shadow-sm transition-shadow"><span>{i===0?'🥇':i===1?'🥈':'🥉'}</span><span className="font-semibold text-gray-700 dark:text-stone-300">{c.name}</span><div className="ml-auto flex items-center gap-1"><Star className="w-3 h-3 text-amber-400 fill-amber-400" /><span className="font-bold text-amber-600 dark:text-amber-400">{getAvgRating(c.id).toFixed(1)}</span></div></div>))}</div></div>)}
+                  {ligues.length>0 && (<div className="mt-3"><div className="flex items-center gap-1.5 mb-2"><Award className="w-3.5 h-3.5 text-amber-500" /><p className="text-sm font-bold text-gray-500">Top Valoració</p></div><div className="space-y-1">{candidates.filter(c => getAvgRating(c.id)>0).sort((a, b) => getAvgRating(b.id)-getAvgRating(a.id)).slice(0, 3).map((c, i) => (<div key={c.id} className="flex items-center gap-2 text-xs px-2 py-1 rounded-lg bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100/30 dark:border-amber-800/20 hover:shadow-sm transition-shadow"><span>{i===0?'🥇':i===1?'🥈':'🥉'}</span><span className="font-semibold text-gray-700 dark:text-stone-300">{c.name}</span><div className="ml-auto flex items-center gap-1"><Star className="w-3 h-3 text-amber-400 fill-amber-400" /><span className="font-bold text-amber-600 dark:text-amber-400">{getAvgRating(c.id).toFixed(1)}</span></div></div>))}</div></div>)}
                   {/* Achievements */}
-                  {candidates.some(c => ACHIEVEMENTS.some(a => c.lligatCount>=a.min)) && (<div className="mt-3"><div className="flex items-center gap-1.5 mb-2"><Target className="w-3.5 h-3.5 text-orange-500" /><p className="text-[11px] font-bold text-gray-500">Fites</p></div><div className="space-y-1 max-h-32 overflow-y-auto custom-scrollbar">{candidates.filter(c => ACHIEVEMENTS.some(a => c.lligatCount>=a.min)).map(c => (<div key={c.id} className="flex items-center gap-1.5 text-[10px] px-2 py-1.5 rounded-lg bg-gradient-to-r from-orange-50/50 to-rose-50/50 dark:from-orange-900/10 dark:to-rose-900/10 border border-orange-100/30 dark:border-orange-800/20"><div className="w-5 h-5 rounded-full overflow-hidden ring-1 ring-gray-200 dark:ring-stone-700 flex-shrink-0"><img src={c.photo} alt={c.name} style={IMG_POS[c.id]?{objectPosition:IMG_POS[c.id]}:undefined} className="w-full h-full object-cover" /></div><span className="font-semibold text-gray-700 dark:text-stone-300 truncate">{c.name}</span><div className="ml-auto flex items-center gap-0.5">{ACHIEVEMENTS.filter(a => c.lligatCount>=a.min).map(a => <Tooltip key={a.id}><TooltipTrigger asChild><span className="text-xs hover:scale-125 inline-block transition-transform">{a.emoji}</span></TooltipTrigger><TooltipContent side="left" className="text-xs"><strong>{a.name}</strong>: {a.desc}</TooltipContent></Tooltip>)}</div></div>))}</div></div>)}
+                  {candidates.some(c => ACHIEVEMENTS.some(a => c.lligatCount>=a.min)) && (<div className="mt-3"><div className="flex items-center gap-1.5 mb-2"><Target className="w-3.5 h-3.5 text-orange-500" /><p className="text-sm font-bold text-gray-500">Fites</p></div><div className="space-y-1 max-h-32 overflow-y-auto custom-scrollbar">{candidates.filter(c => ACHIEVEMENTS.some(a => c.lligatCount>=a.min)).map(c => (<div key={c.id} className="flex items-center gap-1.5 text-xs px-2 py-1.5 rounded-lg bg-gradient-to-r from-orange-50/50 to-rose-50/50 dark:from-orange-900/10 dark:to-rose-900/10 border border-orange-100/30 dark:border-orange-800/20"><div className="w-5 h-5 rounded-full overflow-hidden ring-1 ring-gray-200 dark:ring-stone-700 flex-shrink-0"><img src={c.photo} alt={c.name} style={IMG_POS[c.id]?{objectPosition:IMG_POS[c.id]}:undefined} className="w-full h-full object-cover" /></div><span className="font-semibold text-gray-700 dark:text-stone-300 truncate">{c.name}</span><div className="ml-auto flex items-center gap-0.5">{ACHIEVEMENTS.filter(a => c.lligatCount>=a.min).map(a => <Tooltip key={a.id}><TooltipTrigger asChild><span className="text-xs hover:scale-125 inline-block transition-transform">{a.emoji}</span></TooltipTrigger><TooltipContent side="left" className="text-xs"><strong>{a.name}</strong>: {a.desc}</TooltipContent></Tooltip>)}</div></div>))}</div></div>)}
                   {/* Podium */}
                   {(() => { const t3 = sorted.filter(c => c.lligatCount>0&&!EXEMPT_IDS.has(c.id)).slice(0, 3); if (t3.length<2) return null; const maxC = t3[0]?.lligatCount||1; return (
                     <div className="mt-4 p-3 bg-gradient-to-r from-amber-50/50 to-orange-50/50 dark:from-amber-900/10 dark:to-orange-900/10 rounded-xl border border-amber-100/30 dark:border-amber-800/20">
-                      <p className="text-[11px] font-bold text-gray-500 mb-2 text-center flex items-center justify-center gap-1"><PartyPopper className="w-3.5 h-3.5 text-amber-500" /> PODIUM</p>
+                      <p className="text-sm font-bold text-gray-500 mb-2 text-center flex items-center justify-center gap-1"><PartyPopper className="w-3.5 h-3.5 text-amber-500" /> PODIUM</p>
                       <div className="flex items-end justify-center gap-1.5">
                         {[t3[1], t3[0], t3[2]].filter(Boolean).map((p, i) => { const is1st = i===1; const is2nd = i===0; const barH = Math.max(Math.round((p!.lligatCount/maxC)*64), 20); return p ? (
                           <div key={p.id} className="text-center flex-1">
                             {is1st && <Crown className="w-5 h-5 text-amber-400 mx-auto mb-0.5" />}
                             <div className={`relative ${is1st?'w-11 h-11':'w-9 h-9'} mx-auto rounded-full overflow-hidden ring-2 ${is1st?'ring-amber-400 shadow-md shadow-amber-200/30':is2nd?'ring-gray-300':'ring-orange-300'} mb-1`}><img src={p.photo} alt={p.name} style={IMG_POS[p.id]?{objectPosition:IMG_POS[p.id]}:undefined} className="w-full h-full object-cover" /></div>
-                            <p className={`text-[9px] font-bold truncate ${is1st?'text-amber-700 dark:text-amber-400':'text-gray-600 dark:text-stone-400'}`}>{p.name}</p>
-                            <div className={`mt-0.5 rounded text-[10px] font-bold py-0.5 ${is1st?'bg-amber-200 dark:bg-amber-800/50 text-amber-700 dark:text-amber-400':is2nd?'bg-gray-200 dark:bg-stone-700 text-gray-600':'bg-orange-200 dark:bg-orange-800/50 text-orange-700 dark:text-orange-400'}`}>{p.lligatCount}</div>
+                            <p className={`text-xs font-bold truncate ${is1st?'text-amber-700 dark:text-amber-400':'text-gray-600 dark:text-stone-400'}`}>{p.name}</p>
+                            <div className={`mt-0.5 rounded text-xs font-bold py-0.5 ${is1st?'bg-amber-200 dark:bg-amber-800/50 text-amber-700 dark:text-amber-400':is2nd?'bg-gray-200 dark:bg-stone-700 text-gray-600':'bg-orange-200 dark:bg-orange-800/50 text-orange-700 dark:text-orange-400'}`}>{p.lligatCount}</div>
                             <div className={`rounded-t mt-1 transition-all duration-700 ${is1st?'bg-amber-300/50 dark:bg-amber-700/40':is2nd?'bg-gray-300/50 dark:bg-stone-600/40':'bg-orange-300/50 dark:bg-orange-700/40'}`} style={{ height: `${barH}px` }} />
                             <span className="text-xs">{is1st?'👑':is2nd?'🥈':'🥉'}</span>
                           </div>
@@ -770,12 +770,12 @@ export default function Home() {
                   )})()}
                   {/* Motivation */}
                   <div className="mt-3 p-2.5 bg-gradient-to-r from-orange-50/50 to-rose-50/50 dark:from-orange-900/10 dark:to-rose-900/10 rounded-xl border border-orange-100/30 dark:border-orange-800/20">
-                    <p className="text-[11px] text-center text-gray-500 dark:text-stone-400 italic">{getMotivation(totalLligues)}</p>
+                    <p className="text-sm text-center text-gray-500 dark:text-stone-400 italic">{getMotivation(totalLligues)}</p>
                   </div>
                   {/* Activity Heatmap */}
                   {totalLligues > 0 && (
                     <div className="mt-3 p-2.5 rounded-lg bg-gradient-to-r from-indigo-50/50 to-violet-50/50 dark:from-indigo-900/10 dark:to-violet-900/10 border border-indigo-100/30 dark:border-indigo-800/20">
-                      <div className="flex items-center gap-1.5 mb-2"><BarChart3 className="w-3 h-3 text-indigo-500" /><span className="text-[10px] font-bold text-gray-500 dark:text-stone-400">Activitat 7 dies</span></div>
+                      <div className="flex items-center gap-1.5 mb-2"><BarChart3 className="w-3 h-3 text-indigo-500" /><span className="text-xs font-bold text-gray-500 dark:text-stone-400">Activitat 7 dies</span></div>
                       <div className="flex items-end gap-1.5">{heatmap.map((d, i) => {
                         const maxC = Math.max(...heatmap.map(h => h.count), 1)
                         const h = d.count > 0 ? Math.max(Math.round((d.count / maxC) * 28), 6) : 4
@@ -792,16 +792,16 @@ export default function Home() {
                   {/* Recent Ligues Feed */}
                   {recentLigues.length > 0 && (
                     <div className="mt-3 p-2.5 rounded-lg bg-gradient-to-r from-pink-50/50 to-rose-50/50 dark:from-pink-900/10 dark:to-rose-900/10 border border-pink-100/30 dark:border-pink-800/20">
-                      <div className="flex items-center gap-1.5 mb-2"><Medal className="w-3 h-3 text-pink-500" /><span className="text-[10px] font-bold text-gray-500 dark:text-stone-400">Últimes lligades</span></div>
+                      <div className="flex items-center gap-1.5 mb-2"><Medal className="w-3 h-3 text-pink-500" /><span className="text-xs font-bold text-gray-500 dark:text-stone-400">Últimes lligades</span></div>
                       <div className="space-y-1.5 max-h-32 overflow-y-auto custom-scrollbar">{recentLigues.map(l => (
-                        <div key={l.id} className="flex items-center gap-2 text-[10px] p-1.5 rounded-lg bg-white/50 dark:bg-stone-800/50 border border-pink-100/20 dark:border-pink-800/10 relative group">
+                        <div key={l.id} className="flex items-center gap-2 text-xs p-1.5 rounded-lg bg-white/50 dark:bg-stone-800/50 border border-pink-100/20 dark:border-pink-800/10 relative group">
                           <div className="w-5 h-5 rounded-full overflow-hidden ring-1 ring-gray-200 dark:ring-stone-700 flex-shrink-0"><img src={candidates.find(c => c.id === l.personId)?.photo || ''} alt="" className="w-full h-full object-cover" /></div>
                           <span className="font-semibold text-gray-700 dark:text-stone-300 truncate">{l.personName}</span>
                           {l.nom && <span className="text-gray-400 truncate">→ {l.nom}</span>}
                           {l.rating > 0 && <span className="text-amber-500 font-bold">{l.rating}⭐</span>}
                           <span className="text-gray-400 ml-auto flex-shrink-0">{timeAgo(l.createdAt)}</span>
                           {deleteConfirmId===l.id ? (
-                            <div className="flex items-center gap-1 ml-1"><button onClick={() => deleteLigue(l.id)} className="px-1.5 py-0.5 rounded bg-red-500 text-white text-[9px] font-bold hover:bg-red-600 transition-colors">Sí</button><button onClick={() => setDeleteConfirmId(null)} className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-stone-700 text-gray-600 dark:text-gray-300 text-[9px] font-bold">No</button></div>
+                            <div className="flex items-center gap-1 ml-1"><button onClick={() => deleteLigue(l.id)} className="px-1.5 py-0.5 rounded bg-red-500 text-white text-xs font-bold hover:bg-red-600 transition-colors">Sí</button><button onClick={() => setDeleteConfirmId(null)} className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-stone-700 text-gray-600 dark:text-gray-300 text-xs font-bold">No</button></div>
                           ) : (
                             <button onClick={() => setDeleteConfirmId(l.id)} aria-label="Eliminar lligada" className="ml-0.5 text-gray-300 hover:text-red-500 transition-colors"><Trash2 className="w-3 h-3" /></button>
                           )}
@@ -812,21 +812,21 @@ export default function Home() {
                   {/* Hall of Fame */}
                   {(hallOfFame.bestDay || hallOfFame.maxStreak > 0 || hallOfFame.topRating) && (
                     <div className="mt-3 p-2.5 rounded-lg bg-gradient-to-r from-amber-50/50 to-yellow-50/50 dark:from-amber-900/15 dark:to-yellow-900/10 border border-amber-100/30 dark:border-amber-800/20">
-                      <div className="flex items-center gap-1.5 mb-2"><Crown className="w-3 h-3 text-amber-500" /><span className="text-[10px] font-bold text-gray-500 dark:text-stone-400">Saló de la Fama</span></div>
+                      <div className="flex items-center gap-1.5 mb-2"><Crown className="w-3 h-3 text-amber-500" /><span className="text-xs font-bold text-gray-500 dark:text-stone-400">Saló de la Fama</span></div>
                       <div className="space-y-1.5">
-                        {hallOfFame.bestDay && <div className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-lg bg-amber-50/60 dark:bg-amber-900/10 border border-amber-100/20 dark:border-amber-800/15"><span>📅</span><span className="text-gray-600 dark:text-stone-400">Millor dia:</span><span className="font-bold text-amber-600 dark:text-amber-400 ml-auto">{hallOfFame.bestDay.count} lligades</span></div>}
-                        {hallOfFame.maxStreak > 0 && <div className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-lg bg-orange-50/60 dark:bg-orange-900/10 border border-orange-100/20 dark:border-orange-800/15"><span>🔥</span><span className="text-gray-600 dark:text-stone-400">Ratxa màxima: <strong>{hallOfFame.streakHolder}</strong></span><span className="font-bold text-orange-600 dark:text-orange-400 ml-auto">{hallOfFame.maxStreak}</span></div>}
-                        {hallOfFame.topRating && hallOfFame.topRating.rating > 0 && <div className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-lg bg-rose-50/60 dark:bg-rose-900/10 border border-rose-100/20 dark:border-rose-800/15"><span>⭐</span><span className="text-gray-600 dark:text-stone-400">Valoració màxima: <strong>{hallOfFame.topRating.personName}</strong></span><span className="font-bold text-rose-600 dark:text-rose-400 ml-auto">{hallOfFame.topRating.rating}/10</span></div>}
+                        {hallOfFame.bestDay && <div className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg bg-amber-50/60 dark:bg-amber-900/10 border border-amber-100/20 dark:border-amber-800/15"><span>📅</span><span className="text-gray-600 dark:text-stone-400">Millor dia:</span><span className="font-bold text-amber-600 dark:text-amber-400 ml-auto">{hallOfFame.bestDay.count} lligades</span></div>}
+                        {hallOfFame.maxStreak > 0 && <div className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg bg-orange-50/60 dark:bg-orange-900/10 border border-orange-100/20 dark:border-orange-800/15"><span>🔥</span><span className="text-gray-600 dark:text-stone-400">Ratxa màxima: <strong>{hallOfFame.streakHolder}</strong></span><span className="font-bold text-orange-600 dark:text-orange-400 ml-auto">{hallOfFame.maxStreak}</span></div>}
+                        {hallOfFame.topRating && hallOfFame.topRating.rating > 0 && <div className="flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg bg-rose-50/60 dark:bg-rose-900/10 border border-rose-100/20 dark:border-rose-800/15"><span>⭐</span><span className="text-gray-600 dark:text-stone-400">Valoració màxima: <strong>{hallOfFame.topRating.personName}</strong></span><span className="font-bold text-rose-600 dark:text-rose-400 ml-auto">{hallOfFame.topRating.rating}/10</span></div>}
                       </div>
                     </div>
                   )}
                   {/* Versus Mode */}
                   {nonExempt.length >= 2 && (
                     <div className="mt-3 p-2.5 rounded-lg bg-gradient-to-r from-red-50/50 to-orange-50/50 dark:from-red-900/10 dark:to-orange-900/10 border border-red-100/30 dark:border-red-800/20">
-                      <div className="flex items-center gap-1.5 mb-2"><Swords className="w-3 h-3 text-red-500" /><span className="text-[10px] font-bold text-gray-500 dark:text-stone-400">Versus</span></div>
+                      <div className="flex items-center gap-1.5 mb-2"><Swords className="w-3 h-3 text-red-500" /><span className="text-xs font-bold text-gray-500 dark:text-stone-400">Versus</span></div>
                       {!versusIds ? (
                         <div className="flex gap-1.5">
-                          <select className="flex-1 h-7 text-[10px] rounded-lg bg-white/60 dark:bg-stone-800/60 border border-orange-100 dark:border-stone-700 px-1" defaultValue="" onChange={e => { if (e.target.value) { const a = nonExempt.find(c => c.id !== e.target.value); if (a) setVersusIds([e.target.value, a.id]) } }}>
+                          <select className="flex-1 h-9 text-xs rounded-lg bg-white/60 dark:bg-stone-800/60 border border-orange-100 dark:border-stone-700 px-1" defaultValue="" onChange={e => { if (e.target.value) { const a = nonExempt.find(c => c.id !== e.target.value); if (a) setVersusIds([e.target.value, a.id]) } }}>
                             <option value="" disabled>Selecciona...</option>
                             {nonExempt.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                           </select>
@@ -840,12 +840,12 @@ export default function Home() {
                         return (
                           <div>
                             <div className="flex items-center gap-1.5 mb-1.5">
-                              <span className="flex-1 text-[10px] font-bold text-gray-700 dark:text-stone-300 truncate text-right">{a.name}</span>
+                              <span className="flex-1 text-xs font-bold text-gray-700 dark:text-stone-300 truncate text-right">{a.name}</span>
                               <span className="text-red-500 text-xs">⚔️</span>
-                              <span className="flex-1 text-[10px] font-bold text-gray-700 dark:text-stone-300 truncate">{b.name}</span>
+                              <span className="flex-1 text-xs font-bold text-gray-700 dark:text-stone-300 truncate">{b.name}</span>
                             </div>
                             {[['Lligues',sA.l,sB.l,'l'],['Valoració',sA.r.toFixed(1),sB.r.toFixed(1),'r'],['Ratxa',sA.st,sB.st,'st'],['Fites',sA.ac,sB.ac,'ac']].map(([label,vA,vB,key]) => (
-                              <div key={key as string} className="flex items-center gap-1 text-[9px] mb-1">
+                              <div key={key as string} className="flex items-center gap-1 text-xs mb-1">
                                 <span className={`w-6 text-right font-bold ${Number(vA)>Number(vB)?'text-green-600 dark:text-green-400':'text-gray-400'}`}>{vA}</span>
                                 <div className="flex-1 flex gap-0.5 h-2">
                                   <div className="flex-1 flex justify-end"><div className="bg-orange-400 dark:bg-orange-500 rounded-l-full transition-all" style={{width:`${(Number(vA)/mx[key as keyof typeof mx])*100}%`}} /></div>
@@ -854,7 +854,7 @@ export default function Home() {
                                 <span className={`w-6 font-bold ${Number(vB)>Number(vA)?'text-green-600 dark:text-green-400':'text-gray-400'}`}>{vB}</span>
                               </div>
                             ))}
-                            <button onClick={() => setVersusIds(null)} className="text-[9px] text-gray-400 hover:text-gray-600 mt-1 underline">Canviar</button>
+                            <button onClick={() => setVersusIds(null)} className="text-xs text-gray-400 hover:text-gray-600 mt-1 underline">Canviar</button>
                           </div>
                         )
                       })()}
@@ -872,12 +872,12 @@ export default function Home() {
                         {/* Candidate filter */}
                         {peopleWithPhotos.length > 1 && (
                           <div className="flex items-center gap-1.5 mb-3 overflow-x-auto pb-1">
-                            <button onClick={() => setFeedFilterId(null)} className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold transition-all ${!feedFilterId ? 'bg-orange-500 text-white shadow-sm' : 'bg-gray-100 dark:bg-stone-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-stone-700'}`}>Tots</button>
+                            <button onClick={() => setFeedFilterId(null)} className={`flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-bold transition-all ${!feedFilterId ? 'bg-orange-500 text-white shadow-sm' : 'bg-gray-100 dark:bg-stone-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-stone-700'}`}>Tots</button>
                             {peopleWithPhotos.map(pid => {
                               const person = candidates.find(c => c.id === pid)
                               if (!person) return null
                               return (
-                                <button key={pid} onClick={() => setFeedFilterId(feedFilterId===pid?null:pid)} className={`flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium transition-all ${feedFilterId===pid ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 ring-1 ring-orange-300 dark:ring-orange-700' : 'bg-gray-100 dark:bg-stone-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-stone-700'}`}>
+                                <button key={pid} onClick={() => setFeedFilterId(feedFilterId===pid?null:pid)} className={`flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-all ${feedFilterId===pid ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 ring-1 ring-orange-300 dark:ring-orange-700' : 'bg-gray-100 dark:bg-stone-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-stone-700'}`}>
                                   <div className="w-4 h-4 rounded-full overflow-hidden ring-1 ring-gray-200 dark:ring-stone-700"><img src={person.photo} alt={person.name} className="w-full h-full object-cover" /></div>
                                   {person.name}
                                 </button>
@@ -920,7 +920,7 @@ export default function Home() {
                                         </div>
                                         <div className="flex-1 min-w-0">
                                           <p className="text-xs font-bold text-white truncate">{l.personName}</p>
-                                          {l.nom && <p className="text-[10px] text-white/80 truncate">{l.nom}</p>}
+                                          {l.nom && <p className="text-xs text-white/80 truncate">{l.nom}</p>}
                                         </div>
                                       </div>
                                     </div>
@@ -929,13 +929,13 @@ export default function Home() {
                                   <div className="p-2.5 space-y-1">
                                     {(l.ubi || l.edat) && (
                                       <div className="flex items-center gap-2 flex-wrap">
-                                        {l.ubi && <span className="text-[10px] text-gray-500 dark:text-stone-400 flex items-center gap-0.5"><MapPin className="w-2.5 h-2.5" />{l.ubi}</span>}
-                                        {l.edat && <span className="text-[10px] text-gray-500 dark:text-stone-400 flex items-center gap-0.5"><Users className="w-2.5 h-2.5" />{l.edat} anys</span>}
+                                        {l.ubi && <span className="text-xs text-gray-500 dark:text-stone-400 flex items-center gap-0.5"><MapPin className="w-3 h-3" />{l.ubi}</span>}
+                                        {l.edat && <span className="text-xs text-gray-500 dark:text-stone-400 flex items-center gap-0.5"><Users className="w-3 h-3" />{l.edat} anys</span>}
                                       </div>
                                     )}
                                     <div className="flex items-center gap-1.5">
                                       <Calendar className="w-2.5 h-2.5 text-gray-400" />
-                                      <span className="text-[10px] text-gray-400">{dateStr} · {timeStr}</span>
+                                      <span className="text-xs text-gray-400">{dateStr} · {timeStr}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -947,32 +947,6 @@ export default function Home() {
                     )
                   })()
                   )}
-                </CardContent>
-              </Card>
-              {/* Rules */}
-              <Card className="bg-white/70 dark:bg-stone-900/70 backdrop-blur-md border-orange-100/80 dark:border-stone-800/80 shadow-xl overflow-hidden">
-                <div className="h-1.5 bg-gradient-to-r from-cyan-400 via-teal-400 to-emerald-400" />
-                <CardContent className="p-4">
-                  <h3 className="text-sm font-bold text-gray-700 dark:text-stone-300 mb-2 flex items-center gap-1.5"><Info className="w-4 h-4 text-cyan-500" /> Com funciona?</h3>
-                  <div className="space-y-1.5 text-[11px] text-gray-500 dark:text-stone-400">
-                    <p>+ Suma <strong>+1</strong> cada vegada que lliguis</p>
-                    <p>− Resta si t&apos;has equivocat</p>
-                    <p>↩️ Desfés l&apos;última acció</p>
-                    <p>🔍 Cerca per nom o àlies</p>
-                    <p>🏆 El qui tingui més va primer</p>
-                    <p>📊 Es guarda automàticament</p>
-                    <p>🔄 S&apos;actualitza cada 10s</p>
-                    <p>📋 Comparteix la classificació!</p>
-                    <p>💋 Detalls de cada lligada</p>
-                    <p>⭐ Valora (1-10)</p>
-                    <p>🏅 Desbloqueja fites!</p>
-                    <p>⚔️ Rivalitats en directe</p>
-                    <p>👁️ Clica una foto per al perfil</p>
-                    <div className="mt-2 pt-2 border-t border-purple-200/50 dark:border-purple-800/30">
-                      <p className="text-purple-600 dark:text-purple-400 font-bold">🏳️‍🌈 ElRey</p>
-                      <p className="text-purple-500/80 dark:text-purple-400/70 mt-0.5"><strong>Exempt</strong> - GAY, lliga massa. Però pot sumar!</p>
-                    </div>
-                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -988,7 +962,7 @@ export default function Home() {
             </div>
             <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
               <div className="max-w-md mx-auto space-y-3">
-                <p className="text-center text-stone-400 text-xs mb-4">Toca per sumar ràpid 💪</p>
+                <p className="text-center text-stone-400 text-sm mb-4">Toca per sumar ràpid 💪</p>
                 {sorted.filter(c => !EXEMPT_IDS.has(c.id)).map(person => (
                   <div key={person.id} className="flex items-center gap-3 p-3 rounded-2xl bg-stone-800/60 border border-stone-700/50 transition-all hover:bg-stone-800/80">
                     <div className="relative w-12 h-12 rounded-full overflow-hidden ring-2 ring-stone-600 flex-shrink-0">
@@ -997,7 +971,7 @@ export default function Home() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-stone-200 truncate">{person.name}</p>
-                      <p className="text-[10px] text-stone-500">{person.nickname}</p>
+                      <p className="text-xs text-stone-500">{person.nickname}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-2xl font-extrabold text-rose-400 min-w-[2rem] text-center">{person.lligatCount}</span>
@@ -1009,13 +983,13 @@ export default function Home() {
                 {sorted.filter(c => EXEMPT_IDS.has(c.id)).map(person => (
                   <div key={person.id} className="flex items-center gap-3 p-3 rounded-2xl bg-purple-900/20 border border-purple-700/30">
                     <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-purple-500/50 flex-shrink-0"><img src={person.photo} alt={person.name} className="w-full h-full object-cover grayscale-[30%]" /></div>
-                    <div className="flex-1 min-w-0"><p className="text-sm font-bold text-purple-400 truncate">{person.name} <span className="text-[9px] text-purple-500">(exempt)</span></p></div>
+                    <div className="flex-1 min-w-0"><p className="text-sm font-bold text-purple-400 truncate">{person.name} <span className="text-xs text-purple-500">(exempt)</span></p></div>
                     <div className="flex items-center gap-2"><span className="text-2xl font-extrabold text-purple-400 min-w-[2rem] text-center">{person.lligatCount}</span><button onClick={() => increment(person.id)} className="w-12 h-12 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-xl font-bold flex items-center justify-center transition-all active:scale-95">+</button></div>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="px-4 py-3 border-t border-stone-800/50 text-center"><p className="text-stone-600 text-[10px]">🍷 Mode Nit · Toca + per sumar · {totalLligues} lligues en total</p></div>
+            <div className="px-4 py-3 border-t border-stone-800/50 text-center"><p className="text-stone-600 text-xs">🍷 Mode Nit · Toca + per sumar · {totalLligues} lligues en total</p></div>
           </div>
         )}
 
@@ -1053,7 +1027,7 @@ export default function Home() {
                         {rank===0&&!isExempt&&person.lligatCount>0&&<Crown className="w-5 h-5 text-amber-400" />}
                       </h2>
                       <p className="text-sm text-white/70">@{person.nickname}</p>
-                      {isExempt && <Badge variant="secondary" className="text-[10px] bg-purple-500/50 text-white mt-0.5">🏳️‍🌈 EXEMPT</Badge>}
+                      {isExempt && <Badge variant="secondary" className="text-xs bg-purple-500/50 text-white mt-0.5">🏳️‍🌈 EXEMPT</Badge>}
                     </div>
                   </div>
                 </div>
@@ -1065,19 +1039,19 @@ export default function Home() {
                 <div className="grid grid-cols-4 gap-2 mb-5">
                   <div className="bg-orange-50 dark:bg-orange-900/10 rounded-xl p-3 text-center border border-orange-100/50 dark:border-orange-800/30">
                     <p className="text-2xl font-extrabold text-orange-600 dark:text-orange-400">{person.lligatCount}</p>
-                    <p className="text-[10px] text-gray-500">Lligades</p>
+                    <p className="text-sm text-gray-500">Lligades</p>
                   </div>
                   <div className="bg-amber-50 dark:bg-amber-900/10 rounded-xl p-3 text-center border border-amber-100/50 dark:border-amber-800/30">
                     <p className="text-2xl font-extrabold text-amber-600 dark:text-amber-400">{avgR>0?avgR.toFixed(1):'—'}</p>
-                    <p className="text-[10px] text-gray-500">Valoració</p>
+                    <p className="text-sm text-gray-500">Valoració</p>
                   </div>
                   <div className="bg-rose-50 dark:bg-rose-900/10 rounded-xl p-3 text-center border border-rose-100/50 dark:border-rose-800/30">
                     <p className="text-2xl font-extrabold text-rose-600 dark:text-rose-400">{streak>0?streak:'—'}</p>
-                    <p className="text-[10px] text-gray-500">Ratxa 🔥</p>
+                    <p className="text-sm text-gray-500">Ratxa 🔥</p>
                   </div>
                   <div className="bg-purple-50 dark:bg-purple-900/10 rounded-xl p-3 text-center border border-purple-100/50 dark:border-purple-800/30">
                     <p className="text-2xl font-extrabold text-purple-600 dark:text-purple-400">#{rank+1}</p>
-                    <p className="text-[10px] text-gray-500">Posició</p>
+                    <p className="text-sm text-gray-500">Posició</p>
                   </div>
                 </div>
 
@@ -1118,10 +1092,10 @@ export default function Home() {
                           <div className="relative aspect-[4/3] overflow-hidden">
                             <img src={l.photoData} alt={`Foto`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                            {l.rating > 0 && <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full bg-amber-500/90 text-white text-[10px] font-bold">⭐ {l.rating}</div>}
+                            {l.rating > 0 && <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-full bg-amber-500/90 text-white text-xs font-bold">⭐ {l.rating}</div>}
                             <div className="absolute bottom-1.5 left-1.5 right-1.5">
-                              {l.nom && <p className="text-[10px] text-white font-medium truncate">{l.nom}</p>}
-                              {l.ubi && <p className="text-[9px] text-white/70 flex items-center gap-0.5"><MapPin className="w-2 h-2" />{l.ubi}</p>}
+                              {l.nom && <p className="text-xs text-white font-medium truncate">{l.nom}</p>}
+                              {l.ubi && <p className="text-xs text-white/70 flex items-center gap-0.5"><MapPin className="w-2.5 h-2.5" />{l.ubi}</p>}
                             </div>
                           </div>
                         </div>
@@ -1139,7 +1113,7 @@ export default function Home() {
                         editingLigueId===l.id ? (
                           <div key={l.id} className="p-3 rounded-xl bg-orange-100/50 dark:bg-orange-900/20 border border-orange-200/50 dark:border-orange-800/40 text-xs space-y-2">
                             <div className="flex gap-1.5"><Input value={editLigueNom} onChange={e => setEditLigueNom(e.target.value)} placeholder="Nom" className="h-8 text-xs px-2" /><Input value={editLigueEdat} onChange={e => setEditLigueEdat(e.target.value)} placeholder="Edat" className="h-8 text-xs px-2 w-16" /><Input value={editLigueUbi} onChange={e => setEditLigueUbi(e.target.value)} placeholder="Ubi" className="h-8 text-xs px-2 flex-1" /></div>
-                            <div className="flex items-center gap-1"><div className="flex gap-0.5">{[1,2,3,4,5,6,7,8,9,10].map(v=><button key={v} onClick={()=>setEditLigueRating(v===editLigueRating?0:v)} className={`w-6 h-6 rounded text-[9px] font-bold ${v<=editLigueRating?'bg-amber-400 text-white':'bg-gray-100 dark:bg-stone-700 text-gray-400'}`}>{v}</button>)}</div><div className="ml-auto flex gap-1"><Button size="sm" onClick={saveLigueEdit} className="h-7 text-[10px] px-2 bg-green-500 hover:bg-green-600 text-white">✓</Button><Button size="sm" variant="ghost" onClick={()=>setEditingLigueId(null)} className="h-7 text-[10px] px-2">✕</Button></div></div>
+                            <div className="flex items-center gap-1"><div className="flex gap-0.5">{[1,2,3,4,5,6,7,8,9,10].map(v=><button key={v} onClick={()=>setEditLigueRating(v===editLigueRating?0:v)} className={`w-7 h-7 rounded text-xs font-bold ${v<=editLigueRating?'bg-amber-400 text-white':'bg-gray-100 dark:bg-stone-700 text-gray-400'}`}>{v}</button>)}</div><div className="ml-auto flex gap-1"><Button size="sm" onClick={saveLigueEdit} className="h-8 text-sm px-2 bg-green-500 hover:bg-green-600 text-white">✓</Button><Button size="sm" variant="ghost" onClick={()=>setEditingLigueId(null)} className="h-8 text-sm px-2">✕</Button></div></div>
                           </div>
                         ) : (
                           <div key={l.id} className="p-3 rounded-xl bg-gradient-to-r from-orange-50/50 to-rose-50/50 dark:from-orange-900/10 dark:to-rose-900/10 border border-orange-100/50 dark:border-orange-800/30">
@@ -1156,12 +1130,12 @@ export default function Home() {
                                   {l.ubi && <span className="text-xs text-gray-400 flex items-center gap-0.5"><MapPin className="w-3 h-3" />{l.ubi}</span>}
                                   {l.rating > 0 && <span className="text-xs text-amber-500 font-bold">{l.rating}/10 ⭐</span>}
                                 </div>
-                                <p className="text-[10px] text-gray-400 mt-1 flex items-center gap-0.5"><Calendar className="w-2.5 h-2.5" /> {new Date(l.createdAt).toLocaleDateString('ca-ES', { day: 'numeric', month: 'short' })} · {new Date(l.createdAt).toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit' })}</p>
+                                <p className="text-xs text-gray-400 mt-1 flex items-center gap-0.5"><Calendar className="w-3 h-3" /> {new Date(l.createdAt).toLocaleDateString('ca-ES', { day: 'numeric', month: 'short' })} · {new Date(l.createdAt).toLocaleTimeString('ca-ES', { hour: '2-digit', minute: '2-digit' })}</p>
                               </div>
                               <div className="flex items-center gap-1 flex-shrink-0">
                                 <button onClick={() => startLigueEdit(l)} aria-label="Editar" className="text-gray-300 hover:text-orange-500 transition-colors p-1"><Pencil className="w-3.5 h-3.5" /></button>
                                 {deleteConfirmId===l.id ? (
-                                  <div className="flex items-center gap-1"><button onClick={() => deleteLigue(l.id)} className="px-1.5 py-0.5 rounded bg-red-500 text-white text-[9px] font-bold hover:bg-red-600">Sí</button><button onClick={() => setDeleteConfirmId(null)} className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-stone-700 text-[9px] font-bold">No</button></div>
+                                  <div className="flex items-center gap-1"><button onClick={() => deleteLigue(l.id)} className="px-1.5 py-0.5 rounded bg-red-500 text-white text-xs font-bold hover:bg-red-600">Sí</button><button onClick={() => setDeleteConfirmId(null)} className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-stone-700 text-xs font-bold">No</button></div>
                                 ) : (
                                   <button onClick={() => setDeleteConfirmId(l.id)} aria-label="Eliminar" className="text-gray-300 hover:text-red-500 transition-colors p-1"><Trash2 className="w-3.5 h-3.5" /></button>
                                 )}
@@ -1183,7 +1157,7 @@ export default function Home() {
                         {e.action==='increment'?<ArrowUp className="w-3 h-3"/>:<ArrowDown className="w-3 h-3"/>}
                         <span className="font-medium">{e.action==='increment'?'+1':'-1'}</span>
                         <span className="text-gray-400">→ {e.value}</span>
-                        <span className="ml-auto text-[10px] text-gray-400">{timeAgo(e.createdAt)}</span>
+                        <span className="ml-auto text-xs text-gray-400">{timeAgo(e.createdAt)}</span>
                       </div>
                     ))}</div>
                   </div>
@@ -1282,7 +1256,7 @@ export default function Home() {
                         {liguePhotoPreview ? (
                           <div className="relative inline-block">
                             <img src={liguePhotoPreview} alt="Vista prèvia" className="w-28 h-28 object-cover rounded-xl border-2 border-pink-200 dark:border-pink-800 shadow-md" />
-                            <button onClick={() => { setLiguePhoto(''); setLiguePhotoPreview('') }} aria-label="Treure foto" className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md hover:bg-red-600 transition-colors"><X className="w-3 h-3" /></button>
+                            <button onClick={() => { setLiguePhoto(''); setLiguePhotoPreview('') }} aria-label="Treure foto" className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md hover:bg-red-600 transition-colors"><X className="w-3.5 h-3.5" /></button>
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
@@ -1334,7 +1308,7 @@ export default function Home() {
                 <div className="h-2 bg-gradient-to-r from-cyan-400 to-emerald-400" />
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2"><div className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-orange-400"><img src={candidates.find(c => c.id===showLigueHistory)?.photo||''} alt="" className="w-full h-full object-cover" /></div><div><h3 className="font-bold text-gray-800 dark:text-stone-200">Historial 📖</h3><p className="text-[10px] text-gray-400">{ligues.filter(l => l.personId===showLigueHistory).length} lligades</p></div></div>
+                    <div className="flex items-center gap-2"><div className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-orange-400"><img src={candidates.find(c => c.id===showLigueHistory)?.photo||''} alt="" className="w-full h-full object-cover" /></div><div><h3 className="font-bold text-gray-800 dark:text-stone-200">Historial 📖</h3><p className="text-xs text-gray-400">{ligues.filter(l => l.personId===showLigueHistory).length} lligades</p></div></div>
                     <button onClick={() => setShowLigueHistory(null)} aria-label="Tancar historial" className="text-gray-400 hover:text-gray-600 transition-colors"><X className="w-5 h-5" /></button>
                   </div>
                   {ligues.filter(l => l.personId===showLigueHistory).length===0 ? <p className="text-sm text-gray-400 italic text-center py-4">Sense detalls... 😴</p> : (
@@ -1347,10 +1321,10 @@ export default function Home() {
                           {ligue.nom && <div><span className="text-gray-400 flex items-center gap-0.5"><Heart className="w-2.5 h-2.5" /> Nom:</span><p className="font-semibold text-gray-700 dark:text-stone-300">{ligue.nom}</p></div>}
                           {ligue.edat && <div><span className="text-gray-400 flex items-center gap-0.5"><Users className="w-2.5 h-2.5" /> Edat:</span><p className="font-semibold text-gray-700 dark:text-stone-300">{ligue.edat}</p></div>}
                           {ligue.ubi && <div><span className="text-gray-400 flex items-center gap-0.5"><MapPin className="w-2.5 h-2.5" /> Ubi:</span><p className="font-semibold text-gray-700 dark:text-stone-300">{ligue.ubi}</p></div>}
-                          {ligue.rating>0 && <div><span className="text-gray-400 flex items-center gap-0.5"><Star className="w-2.5 h-2.5" /> Val:</span><div className="flex items-center gap-1.5 mt-0.5"><div className="flex-1 h-1.5 bg-gray-200/60 dark:bg-stone-700/40 rounded-full overflow-hidden"><div className="h-full rounded-full rating-bar-fill" style={{width:`${ligue.rating*10}%`}} /></div><span className="font-bold text-amber-500 text-[10px]">{ligue.rating}/10</span></div></div>}
+                          {ligue.rating>0 && <div><span className="text-gray-400 flex items-center gap-0.5"><Star className="w-2.5 h-2.5" /> Val:</span><div className="flex items-center gap-1.5 mt-0.5"><div className="flex-1 h-1.5 bg-gray-200/60 dark:bg-stone-700/40 rounded-full overflow-hidden"><div className="h-full rounded-full rating-bar-fill" style={{width:`${ligue.rating*10}%`}} /></div><span className="font-bold text-amber-500 text-xs">{ligue.rating}/10</span></div></div>}
                         </div>
-                        <div className="flex items-center justify-between mt-1"><p className="text-[10px] text-gray-400 flex items-center gap-0.5"><Calendar className="w-2.5 h-2.5" /> {timeAgo(ligue.createdAt)}</p>{deleteConfirmId===ligue.id ? (
-                          <div className="flex items-center gap-1"><span className="text-[9px] text-red-500">Eliminar?</span><button onClick={() => deleteLigue(ligue.id)} className="px-1.5 py-0.5 rounded bg-red-500 text-white text-[9px] font-bold hover:bg-red-600">Sí</button><button onClick={() => setDeleteConfirmId(null)} className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-stone-700 text-gray-600 dark:text-gray-300 text-[9px] font-bold">No</button></div>
+                        <div className="flex items-center justify-between mt-1"><p className="text-xs text-gray-400 flex items-center gap-0.5"><Calendar className="w-3 h-3" /> {timeAgo(ligue.createdAt)}</p>{deleteConfirmId===ligue.id ? (
+                          <div className="flex items-center gap-1"><span className="text-xs text-red-500">Eliminar?</span><button onClick={() => deleteLigue(ligue.id)} className="px-1.5 py-0.5 rounded bg-red-500 text-white text-xs font-bold hover:bg-red-600">Sí</button><button onClick={() => setDeleteConfirmId(null)} className="px-1.5 py-0.5 rounded bg-gray-200 dark:bg-stone-700 text-gray-600 dark:text-gray-300 text-xs font-bold">No</button></div>
                         ) : (
                           <button onClick={() => setDeleteConfirmId(ligue.id)} aria-label="Eliminar lligada" className="text-gray-400 hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                         )}</div>
@@ -1397,7 +1371,7 @@ export default function Home() {
 
         {/* FOOTER */}
         <footer className="relative z-10 mt-auto py-3 px-4 border-t border-orange-100/30 dark:border-stone-800/30 footer-gradient backdrop-blur-sm">
-          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-[10px] text-gray-400 dark:text-stone-500">
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-gray-400 dark:text-stone-500">
             <span className="flex items-center gap-1"><Flame className="w-3 h-3 text-orange-400" />v2.0 · Fet amb 🔥</span>
             <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{footerTime}</span>
             <span className="flex items-center gap-1"><Heart className="w-3 h-3 text-rose-400" />{ligues.length} detalls</span>

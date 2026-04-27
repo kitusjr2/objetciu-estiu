@@ -659,3 +659,62 @@ Stage Summary:
 - Fix mobile push notifications
 - Test PWA install flow on mobile
 - Make exempt status configurable via admin UI
+
+---
+Task ID: 21
+Agent: Main Agent
+Task: Comprehensive UI/UX Overhaul - Remove tutorial, increase font sizes, improve spacing, bigger buttons
+
+Work Log:
+- **Removed "Com funciona" tutorial section**: Deleted the entire Card block with `<Info> Com funciona?` heading and bullet points about app features. The Info import was already not in the imports list.
+- **Font size improvements across entire app**:
+  - All `text-[8px]` → `text-[10px]` (badges) or `text-xs` (regular text)
+  - All `text-[9px]` → `text-[11px]` (badges) or `text-xs` (regular text)
+  - All `text-[10px]` → `text-xs` (labels/entries) or `text-sm` (section labels/stats labels)
+  - All `text-[11px]` → `text-sm` (section tabs, podium, motivation text)
+  - Candidate name in grid: `text-xs sm:text-sm` → `text-sm sm:text-base`
+  - Leaderboard person name: `text-sm` → `text-base`
+  - Leaderboard count: `text-lg` → `text-xl`
+  - Stats card labels: `text-[10px]` → `text-sm`
+  - Profile stats labels: `text-[10px]` → `text-sm`
+- **Button size improvements**:
+  - Grid view +/− buttons: `w-8 h-8` → `w-10 h-10`
+  - Grid lligats button: `h-8` → `h-10`
+  - List view +/− buttons: `w-7 h-7` → `w-9 h-9`
+  - Leaderboard +/− buttons: `w-8 h-8` → `w-10 h-10`
+  - Button text: `text-xs` → `text-sm` throughout
+  - Ligue hint button: `h-6` → `h-8`
+- **Spacing improvements**:
+  - Card padding: `p-4 sm:p-5` → `p-5 sm:p-6` for main cards
+  - Timeline card: `p-3` → `p-4`
+  - Section gaps: `gap-2` → `gap-3`, `gap-1.5` → `gap-2` (header)
+  - Section margins: `mb-2` → `mb-3`, `mb-3` → `mb-4`
+  - Leaderboard avatar: `w-10 h-10` → `w-11 h-11`
+  - Candidate grid gap: `gap-2.5` → `gap-3`
+  - Leaderboard item padding: `p-2.5` → `p-3`
+  - Stats card padding: `p-2.5` → `p-3`
+- **Header cleanup**:
+  - Header button icons: `w-3.5 h-3.5` → `w-4 h-4`
+  - Removed "Nit"/"Tornar" text label from night mode button (icon-only now)
+  - Header button gap: `gap-1.5` → `gap-2`
+- **General improvements**:
+  - Search input: `h-8` → `h-10`, text `text-xs` → `text-sm`, icon size increased
+  - Leaderboard max height: `max-h-[560px]` → `max-h-[650px]`
+  - Activity timeline: `max-h-36` → `max-h-48`
+  - Section titles: `text-sm font-bold` → `text-base font-bold` (Rivalitats, Activitat)
+  - Badge heights: `h-4` → `h-5`
+  - Versus select: `h-7` → `h-9`
+  - Profile edit rating buttons: `w-6 h-6` → `w-7 h-7`
+- **Lint**: Passes clean
+- **File size**: Reduced from 1410 to 1384 lines (removed tutorial section)
+- **App**: Compiles and serves correctly on localhost:3000
+
+Stage Summary:
+- Removed "Com funciona" tutorial section entirely
+- Increased ALL tiny font sizes (text-[8px], text-[9px], text-[10px]) to readable sizes
+- Increased button sizes for better touch targets (w-7→w-9, w-8→w-10)
+- Increased spacing throughout (padding, gaps, margins)
+- Cleaned up header (bigger icons, removed night mode text label, more gap)
+- General improvements (bigger search, taller leaderboard, section title sizes)
+- No logic changes - all functionality preserved
+- Lint clean, app renders correctly
