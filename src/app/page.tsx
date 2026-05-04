@@ -325,18 +325,13 @@ export default function Home() {
   const startLigueEdit = (l: LigueEntry) => { setEditingLigueId(l.id); setEditLigueNom(l.nom); setEditLigueEdat(l.edat); setEditLigueUbi(l.ubi); setEditLigueRating(l.rating) }
   const skipLigue = useCallback(() => { if (pendingIncrement) { cancelIncrement(); return }; setShowLigueForm(null); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); liguePhotoRef.current = ''; setLiguePhotoPreview(''); setLigueFormError('') }, [pendingIncrement, cancelIncrement])
   const openLigueForm = (id: string) => { setLigueHintId(null); setShowLigueForm(id); setLigueNom(''); setLigueEdat(''); setLigueUbi(''); setLigueRating(0); liguePhotoRef.current = ''; setLiguePhotoPreview(''); setPendingIncrement(null); setLigueFormError('') }
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>, mirror: boolean = true) => {
     const file = e.target.files?.[0]
     if (!file) return
-    // Read the raw file as base64 directly — preserves EXIF orientation data
-    // Then draw to canvas with horizontal mirror so the stored image matches
-    // the camera preview (front camera shows a mirror, users expect the same result)
     const reader = new FileReader()
     reader.onload = () => {
       const dataUrl = reader.result as string
-      // Set preview immediately from raw file (browser respects EXIF for display)
       setLiguePhotoPreview(dataUrl)
-      // Now process through canvas: resize + mirror to match camera preview
       const img = new Image()
       img.onload = () => {
         const canvas = document.createElement('canvas')
@@ -345,18 +340,22 @@ export default function Home() {
         if (w > maxW) { h = Math.round((h * maxW) / w); w = maxW }
         canvas.width = w; canvas.height = h
         const ctx = canvas.getContext('2d')!
-        // Mirror horizontally so the photo matches the camera preview
-        // (front camera shows a mirror image; without this the saved photo looks "inverted")
-        ctx.translate(w, 0)
-        ctx.scale(-1, 1)
+        // Mirror horizontally only for camera selfies (front camera shows a mirror image)
+        // Gallery photos are already in correct orientation
+        if (mirror) {
+          ctx.translate(w, 0)
+          ctx.scale(-1, 1)
+        }
         ctx.drawImage(img, 0, 0, w, h)
-        const mirrored = canvas.toDataURL('image/jpeg', 0.7)
-        liguePhotoRef.current = mirrored
-        setLiguePhotoPreview(mirrored)
+        const processed = canvas.toDataURL('image/jpeg', 0.7)
+        liguePhotoRef.current = processed
+        setLiguePhotoPreview(processed)
       }
       img.src = dataUrl
     }
     reader.readAsDataURL(file)
+    // Reset input so the same file can be re-selected
+    e.target.value = ''
   }
   // Derived
   const sorted = useMemo(() => [...candidates].sort((a, b) => { const ae = EXEMPT_IDS.has(a.id) ? 1 : 0; const be = EXEMPT_IDS.has(b.id) ? 1 : 0; if (ae !== be) return ae - be; return b.lligatCount - a.lligatCount || a.order - b.order }), [candidates])
@@ -1338,14 +1337,14 @@ export default function Home() {
                           <div className="flex items-center gap-2">
                             <label className="flex items-center justify-center gap-2 flex-1 h-14 rounded-xl border-2 border-dashed border-pink-200 dark:border-pink-800/50 bg-pink-50/50 dark:bg-pink-900/10 cursor-pointer hover:bg-pink-100/50 dark:hover:bg-pink-900/20 transition-all">
                               <Camera className="w-4 h-4 text-pink-400" />
-                              <span className="text-sm text-pink-500 font-medium">Pujar foto</span>
-                              <input type="file" accept="image/*" capture="user" onChange={handleImageSelect} className="hidden" />
+                              <span className="text-sm text-pink-500 font-medium">Càmera</span>
+                              <input type="file" accept="image/*" capture="user" onChange={(e) => handleImageSelect(e, true)} className="hidden" />
                             </label>
-                            {isMandatory && (
-                              <Button variant="outline" size="sm" onClick={() => { /* Allow saving without photo */ }} className="text-xs h-14 border-pink-200 dark:border-pink-800 text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/20">
-                                <span className="text-center leading-tight">Afegir<br/>després</span>
-                              </Button>
-                            )}
+                            <label className="flex items-center justify-center gap-2 flex-1 h-14 rounded-xl border-2 border-dashed border-violet-200 dark:border-violet-800/50 bg-violet-50/50 dark:bg-violet-900/10 cursor-pointer hover:bg-violet-100/50 dark:hover:bg-violet-900/20 transition-all">
+                              <ImageIcon className="w-4 h-4 text-violet-400" />
+                              <span className="text-sm text-violet-500 font-medium">Galeria</span>
+                              <input type="file" accept="image/*" onChange={(e) => handleImageSelect(e, false)} className="hidden" />
+                            </label>
                           </div>
                         )}
                       </div>
